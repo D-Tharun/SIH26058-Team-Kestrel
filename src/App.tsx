@@ -74,6 +74,9 @@ export default function App() {
   const [isSerialModalOpen, setIsSerialModalOpen] = useState<boolean>(false);
   const [isPaused] = useState<boolean>(false);
 
+  // Live STM32 Firmware transmitter parameters (overrides calculated parameters in hardware mode)
+  const [firmwareParams, setFirmwareParams] = useState<TransmitterParameters | null>(null);
+
   // Phase counter for live oscilloscope animation
   const phaseRef = useRef<number>(0);
 
@@ -121,7 +124,42 @@ export default function App() {
         };
       });
 
-      // 3. Process live self-monitor waveform from ADC2 on PC1 (e.g. 256 samples)
+      // 3. Extract and store actual STM32 firmware parameters
+      const modTypes = ['CW', 'LFM Chirp', 'Geometric Sweep', 'Barker-13'] as const;
+      const winTypes = ['Hamming', 'Hann', 'Blackman'] as const;
+
+      const rawFc = json.center_freq ?? json.centerFreq ?? json.centerFrequency;
+      const fcKhz = typeof rawFc === 'number' ? (rawFc > 500 ? Number((rawFc / 1000).toFixed(2)) : Number(rawFc.toFixed(2))) : 9.9;
+
+      const rawBw = json.bandwidth ?? json.bw;
+      const bwKhz = typeof rawBw === 'number' ? (rawBw > 500 ? Number((rawBw / 1000).toFixed(2)) : Number(rawBw.toFixed(2))) : 1.5;
+
+      const rawMod = json.waveform_type ?? json.mod_type;
+      const modType = typeof rawMod === 'number' && modTypes[rawMod] ? modTypes[rawMod] : 'LFM Chirp';
+
+      const rawWin = json.window_type;
+      const winType = typeof rawWin === 'number' && winTypes[rawWin] ? winTypes[rawWin] : 'Hamming';
+
+      const durMs = typeof json.duration === 'number' ? Number(json.duration.toFixed(1)) : 10.0;
+      const rawAmp = json.amplitude ?? json.amp;
+      const ampPct = typeof rawAmp === 'number' ? (rawAmp <= 1.0 ? Math.round(rawAmp * 100) : Math.round(rawAmp)) : 75;
+
+      setFirmwareParams({
+        centerFrequency: fcKhz,
+        modulationType: modType,
+        windowType: winType,
+        bandwidth: bwKhz,
+        pulseDuration: durMs,
+        amplitude: ampPct,
+        chirpRate: modType === 'CW' ? 0 : Math.round((bwKhz / (durMs || 1)) * 100) / 100,
+        timeBandwidthProduct: modType === 'CW' ? 1.0 : Math.round(bwKhz * durMs * 10) / 10,
+        rangeResolution: 0.5,
+        dacSampleRate: 500,
+        sampleCount: 256,
+        pulseRepetitionInterval: 100,
+      });
+
+      // 4. Process live self-monitor waveform from ADC2 on PC1 (e.g. 256 samples)
       if (Array.isArray(rawSamples) && rawSamples.length >= 16) {
         const minVal = Math.min(...rawSamples);
         const maxVal = Math.max(...rawSamples);
@@ -138,14 +176,9 @@ export default function App() {
           return Math.sin(t * Math.PI) * 0.95;
         });
 
-        const rawFc = json.center_freq ?? json.centerFreq ?? json.centerFrequency;
-        const fcKhz = typeof rawFc === 'number' ? (rawFc > 500 ? Number((rawFc / 1000).toFixed(1)) : Number(rawFc.toFixed(1))) : 9.9;
-        const rawBw = json.bandwidth ?? json.bw;
-        const bwKhz = typeof rawBw === 'number' ? (rawBw > 500 ? Number((rawBw / 1000).toFixed(1)) : Number(rawBw.toFixed(1))) : 1.5;
-
-        // Compute FFT and Matched Filter dynamically on the live hardware samples
-        const fft = computeFFT32(normSamples, fcKhz, bwKhz, 'LFM Chirp');
-        const mf = computeMatchedFilter(normSamples, 'LFM Chirp', bwKhz, json.duration || 10);
+        // Compute FFT and Matched Filter dynamically using the ACTUAL firmware parameters
+        const fft = computeFFT32(normSamples, fcKhz, bwKhz, modType);
+        const mf = computeMatchedFilter(normSamples, modType, bwKhz, durMs);
 
         setWaveformData({
           timeSamples: normSamples,
@@ -172,7 +205,10 @@ export default function App() {
 
   // Compute adaptive decisions & physical acoustics
   const soundSpeed = calculateSoundSpeed(envInputs.temperature, envInputs.salinity, envInputs.depth);
-  const { params: derivedParams, trace: derivedTrace } = evaluateAdaptiveDecision(envInputs, soundSpeed);
+  const { params: calculatedParams, trace: derivedTrace } = evaluateAdaptiveDecision(envInputs, soundSpeed);
+
+  // Use actual live firmware parameters when in hardware mode, otherwise use calculated simulation params
+  const derivedParams = (status.hardwareMode && firmwareParams) ? firmwareParams : calculatedParams;
   const derivedAcoustics = computePhysicalAcoustics(envInputs, derivedParams);
 
   // Maintain active waveform data
@@ -185,8 +221,14 @@ export default function App() {
     if (isPaused) return;
 
     const interval = setInterval(() => {
-      // Never overwrite real STM32 data when running in hardware mode
-      if (status.hardwareMode) return;
+      // In hardware mode, real data comes from serial — never overwrite with simulation
+      if (status.hardwareMode) {
+        setStatus((prev) => ({
+          ...prev,
+          isCpuSleeping: Math.random() > 0.65,
+        }));
+        return;
+      }
 
       // Advance phase for smooth dynamic waveform evolution
       phaseRef.current = (phaseRef.current + 0.25) % (2 * Math.PI);
@@ -207,11 +249,17 @@ export default function App() {
 
   // Handler to toggle hardware mode (demo simulator vs physical STM32)
   const handleToggleHardwareMode = () => {
-    setStatus((prev) => ({
-      ...prev,
-      hardwareMode: !prev.hardwareMode,
-      isConnected: !prev.hardwareMode ? false : true,
-    }));
+    setStatus((prev) => {
+      const nextHardware = !prev.hardwareMode;
+      if (!nextHardware) {
+        setFirmwareParams(null);
+      }
+      return {
+        ...prev,
+        hardwareMode: nextHardware,
+        isConnected: nextHardware ? false : true,
+      };
+    });
   };
 
   // Handler to reset inputs to baseline
