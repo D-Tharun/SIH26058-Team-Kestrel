@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { WaveformData, TransmitterParameters, PhysicalAcoustics, SystemStatus } from '../types';
 import { AnimeCounter } from './animations/AnimeCounter';
-import { SonarPulseRadar } from './animations/SonarPulseRadar';
 import {
   Activity,
   Sliders,
@@ -21,7 +20,7 @@ export const SignalAnalysisView: React.FC<SignalAnalysisViewProps> = ({
   params,
   acoustics,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'dsp_lab' | 'ambiguity' | 'link_budget' | 'phased_radar'>('dsp_lab');
+  const [activeSubTab, setActiveSubTab] = useState<'dsp_lab' | 'ambiguity' | 'link_budget' | 'target_telemetry'>('dsp_lab');
   const [cursorA, setCursorA] = useState<number>(18);
   const [cursorB, setCursorB] = useState<number>(46);
 
@@ -257,14 +256,14 @@ export const SignalAnalysisView: React.FC<SignalAnalysisViewProps> = ({
             Sonar Link Budget
           </button>
           <button
-            id="subtab-phased-radar"
-            onClick={() => setActiveSubTab('phased_radar')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium tracking-wide transition-all cursor-pointer ${activeSubTab === 'phased_radar'
+            id="subtab-target-telemetry"
+            onClick={() => setActiveSubTab('target_telemetry')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium tracking-wide transition-all cursor-pointer ${activeSubTab === 'target_telemetry'
                 ? 'bg-[#DBE2EF] text-[#112D4E] font-bold border border-[#3F72AF]/30 shadow-xs'
                 : 'text-[#3F72AF] hover:text-[#112D4E] hover:bg-[#F9F7F7]'
               }`}
           >
-            Array & Radar
+            Target Telemetry
           </button>
         </div>
       </div>
@@ -572,90 +571,76 @@ export const SignalAnalysisView: React.FC<SignalAnalysisViewProps> = ({
         </div>
       )}
 
-      {/* SUB-VIEW 4: Tactical Sonar Radar & Spatial Propagation */}
-      {activeSubTab === 'phased_radar' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          <div className="lg:col-span-7 space-y-4">
-            {/* Spatial Propagation Analysis Card */}
-            <div className="glass-panel p-4 border border-[#DBE2EF] shadow-[0_4px_20px_-2px_rgba(17,45,78,0.06)] text-[#112D4E]">
-              <div className="flex items-center justify-between pb-3 border-b border-[#DBE2EF] mb-3">
-                <div className="flex items-center gap-2">
-                  <Crosshair className="w-4 h-4 text-[#3F72AF]" />
-                  <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-[#112D4E]">
-                    Tactical Target & Beamforming Propagation Telemetry
-                  </h3>
-                </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#DBE2EF] text-[#112D4E] font-bold border border-[#3F72AF]/30">
-                  ACTIVE ACOUSTIC RADAR
-                </span>
-              </div>
+      {/* SUB-VIEW 4: Tactical Target & Spatial Propagation Telemetry */}
+      {activeSubTab === 'target_telemetry' && (
+        <div className="glass-panel p-5 border border-[#DBE2EF] shadow-[0_4px_20px_-2px_rgba(17,45,78,0.06)] text-[#112D4E]">
+          <div className="flex items-center justify-between pb-3 border-b border-[#DBE2EF] mb-4">
+            <div className="flex items-center gap-2">
+              <Crosshair className="w-5 h-5 text-[#3F72AF]" />
+              <h3 className="text-sm font-bold font-mono uppercase tracking-wider text-[#112D4E]">
+                Tactical Target & Beamforming Propagation Telemetry
+              </h3>
+            </div>
+            <span className="text-[10px] font-mono px-2.5 py-1 rounded bg-[#DBE2EF] text-[#112D4E] font-bold border border-[#3F72AF]/30">
+              ACOUSTIC LINK ACTIVE
+            </span>
+          </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 font-mono text-xs mb-4">
-                <div className="bg-[#F9F7F7] p-3 rounded-lg border border-[#DBE2EF]">
-                  <span className="text-[#3F72AF] text-[11px] block">Carrier Wavelength (λ)</span>
-                  <span className="text-base font-bold text-[#112D4E]">
-                    {((acoustics.soundSpeed / (params.centerFrequency * 1000)) * 1000).toFixed(2)} mm
-                  </span>
-                </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono text-xs mb-5">
+            <div className="bg-[#F9F7F7] p-4 rounded-xl border border-[#DBE2EF]">
+              <span className="text-[#3F72AF] text-[11px] block">Carrier Wavelength (λ)</span>
+              <span className="text-xl font-bold text-[#112D4E]">
+                {((acoustics.soundSpeed / (params.centerFrequency * 1000)) * 1000).toFixed(2)} mm
+              </span>
+            </div>
 
-                <div className="bg-[#F9F7F7] p-3 rounded-lg border border-[#DBE2EF]">
-                  <span className="text-[#3F72AF] text-[11px] block">Beamwidth (θ-3dB)</span>
-                  <span className="text-base font-bold text-[#112D4E]">
-                    {(50.8 * (acoustics.soundSpeed / (params.centerFrequency * 1000)) / 0.12).toFixed(1)}°
-                  </span>
-                </div>
+            <div className="bg-[#F9F7F7] p-4 rounded-xl border border-[#DBE2EF]">
+              <span className="text-[#3F72AF] text-[11px] block">Beamwidth (θ-3dB)</span>
+              <span className="text-xl font-bold text-[#112D4E]">
+                {(50.8 * (acoustics.soundSpeed / (params.centerFrequency * 1000)) / 0.12).toFixed(1)}°
+              </span>
+            </div>
 
-                <div className="bg-[#F9F7F7] p-3 rounded-lg border border-[#DBE2EF]">
-                  <span className="text-[#3F72AF] text-[11px] block">Max Unambiguous Range</span>
-                  <span className="text-base font-bold text-amber-700">
-                    {((acoustics.soundSpeed * (params.pulseRepetitionInterval / 1000)) / 2).toFixed(0)} m
-                  </span>
-                </div>
-              </div>
-
-              {/* Detected Echo Tracks Table */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-left font-mono text-xs border border-[#DBE2EF] rounded-lg overflow-hidden">
-                  <thead className="bg-[#DBE2EF]/60 text-[#112D4E] text-[11px] uppercase">
-                    <tr>
-                      <th className="p-2">Track ID</th>
-                      <th className="p-2">Range</th>
-                      <th className="p-2">Bearing</th>
-                      <th className="p-2">Doppler Speed</th>
-                      <th className="p-2">Echo SNR</th>
-                      <th className="p-2">Classification</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#DBE2EF] text-[#112D4E]">
-                    <tr className="hover:bg-[#F9F7F7]">
-                      <td className="p-2 font-bold text-[#3F72AF]">T-01 (Echo Alpha)</td>
-                      <td className="p-2">1,420 m</td>
-                      <td className="p-2 font-semibold">038° (NE)</td>
-                      <td className="p-2 text-emerald-700 font-bold">+4.2 kts</td>
-                      <td className="p-2 text-amber-700 font-bold">+18.4 dB</td>
-                      <td className="p-2"><span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px]">Subsurface Contact</span></td>
-                    </tr>
-                    <tr className="hover:bg-[#F9F7F7]">
-                      <td className="p-2 font-bold text-[#3F72AF]">T-02 (Echo Bravo)</td>
-                      <td className="p-2">2,100 m</td>
-                      <td className="p-2 font-semibold">225° (SW)</td>
-                      <td className="p-2 text-rose-700 font-bold">-1.8 kts</td>
-                      <td className="p-2 text-amber-700 font-bold">+14.1 dB</td>
-                      <td className="p-2"><span className="px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 text-[10px]">Stationary Seafloor</span></td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+            <div className="bg-[#F9F7F7] p-4 rounded-xl border border-[#DBE2EF]">
+              <span className="text-[#3F72AF] text-[11px] block">Max Unambiguous Range</span>
+              <span className="text-xl font-bold text-amber-700">
+                {((acoustics.soundSpeed * (params.pulseRepetitionInterval / 1000)) / 2).toFixed(0)} m
+              </span>
             </div>
           </div>
 
-          <div className="lg:col-span-5">
-            <SonarPulseRadar
-              centerFrequency={params.centerFrequency}
-              bandwidth={params.bandwidth}
-              soundSpeed={acoustics.soundSpeed}
-              rangeResolution={params.rangeResolution}
-            />
+          {/* Detected Echo Tracks Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left font-mono text-xs border border-[#DBE2EF] rounded-xl overflow-hidden">
+              <thead className="bg-[#DBE2EF]/60 text-[#112D4E] text-xs uppercase font-bold">
+                <tr>
+                  <th className="p-3">Track ID</th>
+                  <th className="p-3">Range</th>
+                  <th className="p-3">Bearing</th>
+                  <th className="p-3">Doppler Speed</th>
+                  <th className="p-3">Echo SNR</th>
+                  <th className="p-3">Classification</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#DBE2EF] text-[#112D4E]">
+                <tr className="hover:bg-[#F9F7F7]">
+                  <td className="p-3 font-bold text-[#3F72AF]">T-01 (Echo Alpha)</td>
+                  <td className="p-3 font-semibold">1,420 m</td>
+                  <td className="p-3 font-semibold">038° (NE)</td>
+                  <td className="p-3 text-emerald-700 font-bold">+4.2 kts</td>
+                  <td className="p-3 text-amber-700 font-bold">+18.4 dB</td>
+                  <td className="p-3"><span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-semibold">Subsurface Contact</span></td>
+                </tr>
+                <tr className="hover:bg-[#F9F7F7]">
+                  <td className="p-3 font-bold text-[#3F72AF]">T-02 (Echo Bravo)</td>
+                  <td className="p-3 font-semibold">2,100 m</td>
+                  <td className="p-3 font-semibold">225° (SW)</td>
+                  <td className="p-3 text-rose-700 font-bold">-1.8 kts</td>
+                  <td className="p-3 text-amber-700 font-bold">+14.1 dB</td>
+                  <td className="p-3"><span className="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 text-[11px] font-semibold">Stationary Seafloor</span></td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       )}
