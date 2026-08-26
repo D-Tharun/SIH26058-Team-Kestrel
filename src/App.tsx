@@ -84,23 +84,29 @@ export default function App() {
     });
 
     const unsubTelemetry = serialService.onTelemetry((json) => {
-      // 1. Update live environmental pot readings from STM32 ADC1
+      if (!json || typeof json !== 'object') return;
+
+      // 1. Update live environmental pot readings (supports snake_case and camelCase)
+      const rawTurb = typeof json.turbidity === 'number' ? json.turbidity : undefined;
+      const parsedTurbidity = rawTurb !== undefined ? (rawTurb <= 1.0 ? Math.min(100, Math.round(rawTurb * 100)) : Math.min(100, Math.round(rawTurb))) : undefined;
+
       setEnvInputs((prev) => ({
         depth: typeof json.depth === 'number' ? Number(json.depth.toFixed(1)) : prev.depth,
-        turbidity: typeof json.turbidity === 'number' ? Math.min(100, Math.round(json.turbidity * 100)) : prev.turbidity,
-        temperature: typeof json.temperature === 'number' ? Number(json.temperature.toFixed(1)) : prev.temperature,
-        salinity: typeof json.salinity === 'number' ? Number(json.salinity.toFixed(1)) : prev.salinity,
-        pH: typeof json.ph === 'number' ? Number(json.ph.toFixed(1)) : 8.1,
-        resPen: typeof json.res_pen === 'number' ? Number(json.res_pen.toFixed(2)) : prev.resPen,
+        turbidity: parsedTurbidity !== undefined ? parsedTurbidity : prev.turbidity,
+        temperature: typeof (json.temperature ?? json.temp) === 'number' ? Number((json.temperature ?? json.temp).toFixed(1)) : prev.temperature,
+        salinity: typeof (json.salinity ?? json.salt) === 'number' ? Number((json.salinity ?? json.salt).toFixed(1)) : prev.salinity,
+        pH: typeof (json.ph ?? json.pH) === 'number' ? Number((json.ph ?? json.pH).toFixed(1)) : prev.pH,
+        resPen: typeof (json.res_pen ?? json.resPen) === 'number' ? Number((json.res_pen ?? json.resPen).toFixed(2)) : prev.resPen,
         ambientNoise: prev.ambientNoise,
       }));
 
       // 2. Update real-time hardware status and self-monitor voltage
+      const rawSamples = json.adc_samples || json.adcSamples || json.samples;
       setStatus((prev) => {
         let avgMv = prev.loopbackVoltageMv;
-        if (Array.isArray(json.adc_samples) && json.adc_samples.length > 0) {
-          const sum = json.adc_samples.reduce((a: number, b: number) => a + b, 0);
-          const avgDac = sum / json.adc_samples.length;
+        if (Array.isArray(rawSamples) && rawSamples.length > 0) {
+          const sum = rawSamples.reduce((a: number, b: number) => a + b, 0);
+          const avgDac = sum / rawSamples.length;
           avgMv = Math.round((avgDac / 4095) * 3300);
         }
 
@@ -116,13 +122,13 @@ export default function App() {
       });
 
       // 3. Process live 64-sample self-monitor waveform from ADC2 on PC1
-      if (Array.isArray(json.adc_samples) && json.adc_samples.length >= 32) {
-        const rawSamples: number[] = json.adc_samples;
+      if (Array.isArray(rawSamples) && rawSamples.length >= 16) {
         const normSamples = rawSamples.map((v: number) => {
           return Math.max(-1, Math.min(1, (v - 320) / 300));
         });
 
-        const fcKhz = typeof json.center_freq === 'number' ? (json.center_freq > 500 ? json.center_freq / 1000 : json.center_freq) : 48.0;
+        const rawFc = json.center_freq ?? json.centerFreq ?? json.centerFrequency;
+        const fcKhz = typeof rawFc === 'number' ? (rawFc > 500 ? rawFc / 1000 : rawFc) : 48.0;
 
         setWaveformData((prev) => ({
           ...prev,
