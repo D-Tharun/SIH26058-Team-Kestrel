@@ -226,14 +226,8 @@ export default function App() {
     if (isPaused) return;
 
     const interval = setInterval(() => {
-      // In hardware mode, real data comes from serial — never overwrite with simulation
-      if (status.hardwareMode) {
-        setStatus((prev) => ({
-          ...prev,
-          isCpuSleeping: Math.random() > 0.65,
-        }));
-        return;
-      }
+      // In hardware mode, real data comes from serial — never run simulation or fake status generators
+      if (status.hardwareMode) return;
 
       // Advance phase for smooth dynamic waveform evolution
       phaseRef.current = (phaseRef.current + 0.25) % (2 * Math.PI);
