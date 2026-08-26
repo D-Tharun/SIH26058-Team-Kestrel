@@ -10,6 +10,12 @@ interface SpectrumFftProps {
 export const SpectrumFft: React.FC<SpectrumFftProps> = ({ data, params }) => {
   const { fftBins, fftFrequencies, peakFrequencyKhz, commandedFrequencyKhz, peakMatchDeltaKhz, isPeakMatched } = data;
 
+  const f0 = fftFrequencies[0] ?? 0.5;
+  const f1 = fftFrequencies[8] ?? 4.0;
+  const f2 = fftFrequencies[16] ?? 8.0;
+  const f3 = fftFrequencies[24] ?? 12.0;
+  const f4 = fftFrequencies[fftFrequencies.length - 1] ?? 16.0;
+
   return (
     <div
       id="spectrum-fft-card"
@@ -64,7 +70,7 @@ export const SpectrumFft: React.FC<SpectrumFftProps> = ({ data, params }) => {
         <div className="flex items-end justify-between gap-[2px] h-[95px] pt-2 px-1">
           {fftBins.map((binVal, idx) => {
             const freq = fftFrequencies[idx] || 0;
-            const isPeak = Math.abs(freq - peakFrequencyKhz) < 2.5;
+            const isPeak = Math.abs(freq - peakFrequencyKhz) < 1.2;
             const isNearCommand = Math.abs(freq - commandedFrequencyKhz) < (params.bandwidth / 2);
 
             let barBg = 'bg-[#DBE2EF]/30';
@@ -106,13 +112,13 @@ export const SpectrumFft: React.FC<SpectrumFftProps> = ({ data, params }) => {
           })}
         </div>
 
-        {/* X-axis Frequency Scale Labels */}
+        {/* Dynamic X-axis Frequency Scale Labels */}
         <div className="flex justify-between text-[9px] font-mono text-[#DBE2EF]/70 pt-1 border-t border-white/10">
-          <span>10 kHz</span>
-          <span>40 kHz</span>
-          <span>75 kHz</span>
-          <span>110 kHz</span>
-          <span>140 kHz</span>
+          <span>{f0} kHz</span>
+          <span>{f1} kHz</span>
+          <span>{f2} kHz</span>
+          <span>{f3} kHz</span>
+          <span>{f4} kHz</span>
         </div>
       </div>
     </div>

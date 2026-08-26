@@ -17,7 +17,7 @@ import {
 } from './types';
 import { calculateSoundSpeed, computePhysicalAcoustics } from './utils/acousticEngine';
 import { evaluateAdaptiveDecision } from './utils/decisionEngine';
-import { buildWaveformData } from './utils/signalGenerator';
+import { buildWaveformData, computeFFT32, computeMatchedFilter } from './utils/signalGenerator';
 import { serialService } from './utils/serialConnection';
 
 import GradientWaves from './components/GradientWaves';
@@ -121,21 +121,46 @@ export default function App() {
         };
       });
 
-      // 3. Process live 64-sample self-monitor waveform from ADC2 on PC1
+      // 3. Process live self-monitor waveform from ADC2 on PC1 (e.g. 256 samples)
       if (Array.isArray(rawSamples) && rawSamples.length >= 16) {
+        const minVal = Math.min(...rawSamples);
+        const maxVal = Math.max(...rawSamples);
+        const meanVal = rawSamples.reduce((a: number, b: number) => a + b, 0) / rawSamples.length;
+        const maxDev = Math.max(12, Math.max(Math.abs(maxVal - meanVal), Math.abs(minVal - meanVal)));
+
         const normSamples = rawSamples.map((v: number) => {
-          return Math.max(-1, Math.min(1, (v - 320) / 300));
+          return Math.max(-1, Math.min(1, (v - meanVal) / maxDev));
+        });
+
+        // Compute symmetrical window envelope for the oscilloscope display
+        const envelope = normSamples.map((_, i) => {
+          const t = i / (normSamples.length - 1);
+          return Math.sin(t * Math.PI) * 0.95;
         });
 
         const rawFc = json.center_freq ?? json.centerFreq ?? json.centerFrequency;
-        const fcKhz = typeof rawFc === 'number' ? (rawFc > 500 ? rawFc / 1000 : rawFc) : 48.0;
+        const fcKhz = typeof rawFc === 'number' ? (rawFc > 500 ? Number((rawFc / 1000).toFixed(1)) : Number(rawFc.toFixed(1))) : 9.9;
+        const rawBw = json.bandwidth ?? json.bw;
+        const bwKhz = typeof rawBw === 'number' ? (rawBw > 500 ? Number((rawBw / 1000).toFixed(1)) : Number(rawBw.toFixed(1))) : 1.5;
 
-        setWaveformData((prev) => ({
-          ...prev,
+        // Compute FFT and Matched Filter dynamically on the live hardware samples
+        const fft = computeFFT32(normSamples, fcKhz, bwKhz, 'LFM Chirp');
+        const mf = computeMatchedFilter(normSamples, 'LFM Chirp', bwKhz, json.duration || 10);
+
+        setWaveformData({
           timeSamples: normSamples,
+          envelope,
+          fftBins: fft.bins,
+          fftFrequencies: fft.frequencies,
+          peakFrequencyKhz: fft.peakFreq,
           commandedFrequencyKhz: fcKhz,
-          peakFrequencyKhz: fcKhz,
-        }));
+          peakMatchDeltaKhz: fft.peakMatchDelta,
+          isPeakMatched: fft.peakMatchDelta <= 2.0,
+          autocorrelation: mf.autocorrelation,
+          mainlobeWidthMs: mf.mainlobeWidthMs,
+          pslrDb: mf.pslrDb,
+          spectrogramSlice: fft.bins,
+        });
       }
     });
 

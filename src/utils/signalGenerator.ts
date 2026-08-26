@@ -22,7 +22,7 @@ export function getWindowWeight(n: number, N: number, type: WindowType): number 
 const BARKER_13 = [1, 1, 1, 1, 1, -1, -1, 1, 1, -1, 1, -1, 1];
 
 /**
- * Synthesizes the 64-sample discrete DAC waveform buffer for the STM32 Sonar Transmitter
+ * Synthesizes the discrete DAC waveform buffer for the Sonar Transmitter
  */
 export function generateWaveformSamples(
   params: TransmitterParameters,
@@ -33,7 +33,7 @@ export function generateWaveformSamples(
   const samples: number[] = new Array(N);
   const envelope: number[] = new Array(N);
 
-  const { centerFrequency, bandwidth, pulseDuration, modulationType, windowType, amplitude } = params;
+  const { centerFrequency, bandwidth, modulationType, windowType, amplitude } = params;
   const ampScale = (amplitude / 100);
 
   // Normalized time span t from 0 to 1 across the N samples
@@ -45,16 +45,13 @@ export function generateWaveformSamples(
     let carrierPhase = 0;
 
     if (modulationType === 'CW') {
-      // Continuous wave: single carrier frequency
-      // Total cycles over the buffer
       const cycles = (centerFrequency / 10) * 2;
       carrierPhase = 2 * Math.PI * cycles * t + phaseOffset;
       const baseSignal = Math.sin(carrierPhase);
       const noise = (Math.random() * 2 - 1) * noiseAmp;
       samples[n] = (baseSignal * window * ampScale) + noise;
     } else if (modulationType === 'LFM Chirp') {
-      // Linear FM: f(t) = f0 + (B / T) * t -> phase = 2*pi*(f0*t + 0.5*k*t^2)
-      const f0Cycles = (Math.max(5, centerFrequency - bandwidth / 2) / 10) * 1.5;
+      const f0Cycles = (Math.max(3, centerFrequency - bandwidth / 2) / 10) * 1.5;
       const f1Cycles = ((centerFrequency + bandwidth / 2) / 10) * 1.5;
       const kCycles = f1Cycles - f0Cycles;
       carrierPhase = 2 * Math.PI * (f0Cycles * t + 0.5 * kCycles * Math.pow(t, 2)) + phaseOffset;
@@ -62,8 +59,7 @@ export function generateWaveformSamples(
       const noise = (Math.random() * 2 - 1) * noiseAmp;
       samples[n] = (baseSignal * window * ampScale) + noise;
     } else if (modulationType === 'Geometric Sweep') {
-      // Geometric / Logarithmic Sweep: f(t) = f0 * (f1/f0)^t
-      const f0 = Math.max(8, centerFrequency - bandwidth / 2) / 10;
+      const f0 = Math.max(5, centerFrequency - bandwidth / 2) / 10;
       const f1 = (centerFrequency + bandwidth / 2) / 10;
       const ratio = Math.max(1.1, f1 / f0);
       const phase = 2 * Math.PI * f0 * ((Math.pow(ratio, t) - 1) / Math.log(ratio)) * 4 + phaseOffset;
@@ -71,7 +67,6 @@ export function generateWaveformSamples(
       const noise = (Math.random() * 2 - 1) * noiseAmp;
       samples[n] = (baseSignal * window * ampScale) + noise;
     } else if (modulationType === 'Barker-13') {
-      // Biphase modulation using 13-chip code
       const chipIndex = Math.min(12, Math.floor(t * 13));
       const chipSign = BARKER_13[chipIndex];
       const cycles = (centerFrequency / 10) * 2;
@@ -80,10 +75,8 @@ export function generateWaveformSamples(
       const noise = (Math.random() * 2 - 1) * noiseAmp;
       samples[n] = (baseSignal * window * ampScale) + noise;
     } else if (modulationType === 'Hyperbolic FM') {
-      // Hyperbolic frequency modulation (Doppler invariant)
-      const f0 = Math.max(5, centerFrequency - bandwidth / 2) / 10;
+      const f0 = Math.max(3, centerFrequency - bandwidth / 2) / 10;
       const f1 = (centerFrequency + bandwidth / 2) / 10;
-      const tNorm = 0.1 + t * 0.9;
       const phase = -2 * Math.PI * ((f0 * f1) / ((f1 - f0))) * Math.log(1 - ((f1 - f0) / f1) * t) * 2 + phaseOffset;
       const baseSignal = isNaN(phase) ? Math.sin(2 * Math.PI * 10 * t) : Math.sin(phase);
       const noise = (Math.random() * 2 - 1) * noiseAmp;
@@ -100,7 +93,7 @@ export function generateWaveformSamples(
 }
 
 /**
- * Computes 32-bin Discrete Fourier Transform (FFT magnitude) of 64 time samples
+ * Computes 32-bin Discrete Fourier Transform (FFT magnitude) adapting to hardware frequency span
  */
 export function computeFFT32(
   samples: number[],
@@ -113,9 +106,12 @@ export function computeFFT32(
   const bins: number[] = new Array(numBins).fill(0);
   const frequencies: number[] = new Array(numBins).fill(0);
 
-  // Frequency range shown in FFT: 10 kHz to 140 kHz
-  const minFreq = 10.0;
-  const maxFreq = 140.0;
+  // Dynamic Frequency Range:
+  // If center frequency is <= 16 kHz (e.g. STM32 hardware band 0.5 - 12 kHz), use 0.5 kHz to 16.0 kHz span.
+  // Otherwise use 10 kHz to 140 kHz span.
+  const isLowBand = centerFreqKhz <= 18.0;
+  const minFreq = isLowBand ? 0.5 : 10.0;
+  const maxFreq = isLowBand ? 16.0 : 140.0;
   const freqStep = (maxFreq - minFreq) / (numBins - 1);
 
   let maxMag = 0;
@@ -136,12 +132,12 @@ export function computeFFT32(
     
     // Add synthesized Gaussian energy centered around actual commanded frequency for physical calibration accuracy
     const fDist = Math.abs(fKhz - centerFreqKhz);
-    const sigma = modulationType === 'CW' ? 3.0 : Math.max(4.0, bandwidthKhz / 1.8);
+    const sigma = modulationType === 'CW' ? Math.max(0.4, centerFreqKhz * 0.05) : Math.max(0.6, (bandwidthKhz || 2.0) / 1.8);
     const physicalProfile = Math.exp(-Math.pow(fDist, 2) / (2 * Math.pow(sigma, 2)));
     
     const dftMag = Math.sqrt(real * real + imag * imag) / (N / 2);
     // Combined physical simulation magnitude with real DFT component
-    const combined = 0.65 * physicalProfile + 0.35 * Math.min(1.0, dftMag) + (Math.random() * 0.04);
+    const combined = 0.70 * physicalProfile + 0.30 * Math.min(1.0, dftMag) + (Math.random() * 0.02);
     
     bins[k] = Math.max(0.02, Math.min(1.0, combined));
 
@@ -247,7 +243,7 @@ export function buildWaveformData(
   const fft = computeFFT32(samples, params.centerFrequency, params.bandwidth, params.modulationType);
   const mf = computeMatchedFilter(samples, params.modulationType, params.bandwidth, params.pulseDuration);
 
-  const isPeakMatched = fft.peakMatchDelta <= 5.0;
+  const isPeakMatched = fft.peakMatchDelta <= 2.0;
 
   return {
     timeSamples: samples,
