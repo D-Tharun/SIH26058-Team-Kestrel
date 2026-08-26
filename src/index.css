@@ -1,0 +1,151 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    /* 4-Color Palette: #F9F7F7, #DBE2EF, #3F72AF, #112D4E */
+    --color-bg-base: #F9F7F7;
+    --color-border-subtle: #DBE2EF;
+    --color-primary: #3F72AF;
+    --color-primary-dark: #112D4E;
+    
+    --color-text-primary: #112D4E;
+    --color-text-secondary: #3F72AF;
+    --color-text-muted: #64748B;
+    --color-card-bg: #FFFFFF;
+    --color-border: #DBE2EF;
+    --color-success: #10B981;
+    --color-warning: #F59E0B;
+    --color-danger: #EF4444;
+
+    --card-shadow: 0 4px 20px -2px rgba(17, 45, 78, 0.06), 0 2px 6px -1px rgba(17, 45, 78, 0.03);
+    --card-shadow-hover: 0 10px 25px -3px rgba(17, 45, 78, 0.1), 0 4px 10px -2px rgba(17, 45, 78, 0.05);
+  }
+
+  body {
+    min-height: 100vh;
+    background-color: #03070E;
+    background-image: 
+      /* Deep ambient top shadow vignette */
+      radial-gradient(ellipse 130% 70% at 50% -15%, rgba(2, 5, 10, 0.98) 0%, transparent 80%),
+      /* Deep subtle bottom spherical spectrum dome */
+      radial-gradient(ellipse 110% 75% at 50% 100%, 
+        rgba(60, 100, 150, 0.65) 0%,
+        rgba(45, 80, 128, 0.55) 15%,
+        rgba(30, 60, 102, 0.45) 28%,
+        rgba(20, 42, 75, 0.35) 45%,
+        rgba(12, 28, 52, 0.25) 62%,
+        rgba(8, 18, 35, 0.15) 76%,
+        rgba(4, 10, 20, 0.08) 88%,
+        rgba(2, 5, 10, 0) 100%
+      ),
+      /* Deep linear backdrop */
+      linear-gradient(180deg, #02050A 0%, #060D18 40%, #0B192C 85%, #112642 100%);
+    background-attachment: fixed;
+    color: #112D4E;
+    font-family: 'DM Sans', 'Inter', system-ui, sans-serif;
+    overflow-x: hidden;
+  }
+}
+
+/* Spherical Spectrum Utility (Exact match to reference image with deep spherical light dome) */
+.spherical-spectrum-bg {
+  background-color: #03070E;
+  background-image: 
+    radial-gradient(ellipse 130% 75% at 50% 0%, rgba(2, 5, 10, 0.98) 0%, transparent 75%),
+    radial-gradient(ellipse 110% 80% at 50% 100%, 
+      rgba(65, 105, 155, 0.65) 0%,
+      rgba(45, 80, 128, 0.55) 16%,
+      rgba(30, 60, 102, 0.45) 30%,
+      rgba(20, 42, 75, 0.35) 48%,
+      rgba(12, 28, 52, 0.25) 65%,
+      rgba(6, 15, 30, 0.12) 78%,
+      rgba(2, 5, 10, 0) 100%
+    ),
+    linear-gradient(180deg, #02050A 0%, #050C18 35%, #0B1C33 75%, #102747 100%);
+  background-attachment: fixed;
+}
+
+/* Crisp Clean Soft White Background Window Classes */
+.glass-panel {
+  background: #F9F7F7;
+  border: 1px solid #DBE2EF;
+  border-radius: 18px;
+  box-shadow: 0 4px 20px -2px rgba(17, 45, 78, 0.06);
+}
+
+.glass-panel-subtle {
+  background: #F9F7F7;
+  border: 1px solid #DBE2EF;
+  border-radius: 14px;
+  box-shadow: 0 2px 10px -2px rgba(17, 45, 78, 0.04);
+}
+
+.glass-panel-nested {
+  background: #FFFFFF;
+  border: 1px solid #DBE2EF;
+  border-radius: 12px;
+}
+
+.glass-panel-dark {
+  background: #112D4E;
+  border: 1px solid rgba(63, 114, 175, 0.35);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+.glass-pill {
+  background: #FFFFFF;
+  border: 1px solid #DBE2EF;
+  color: #112D4E;
+}
+
+.glass-pill-cyan {
+  background: #DBE2EF;
+  border: 1px solid rgba(63, 114, 175, 0.3);
+  color: #112D4E;
+}
+
+.glass-pill-amber {
+  background: #FEF3C7;
+  border: 1px solid #FDE68A;
+  color: #B45309;
+}
+
+.glass-pill-emerald {
+  background: #D1FAE5;
+  border: 1px solid #A7F3D0;
+  color: #047857;
+}
+
+/* Subtle Shadows & Accents */
+.glow-primary {
+  box-shadow: 0 0 16px rgba(63, 114, 175, 0.25);
+}
+
+.glow-secondary {
+  box-shadow: 0 0 16px rgba(17, 45, 78, 0.15);
+}
+
+.glow-amber {
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.2);
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(219, 226, 239, 0.4);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #DBE2EF;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #3F72AF;
+}

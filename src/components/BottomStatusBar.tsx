@@ -1,0 +1,144 @@
+import React from 'react';
+import {
+  Activity,
+  Zap,
+  Gauge,
+  ShieldCheck,
+  ShieldAlert,
+  Compass,
+  Cpu,
+  Radio,
+  Waves,
+} from 'lucide-react';
+import {
+  PhysicalAcoustics,
+  TransmitterParameters,
+  SystemStatus,
+  EnvironmentalInputs,
+} from '../types';
+import { AnimeCounter } from './animations/AnimeCounter';
+
+interface BottomStatusBarProps {
+  acoustics: PhysicalAcoustics;
+  params: TransmitterParameters;
+  status: SystemStatus;
+  env: EnvironmentalInputs;
+}
+
+export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
+  acoustics,
+  params,
+  status,
+}) => {
+  const isSelfMonConnected = status.selfMonitorStatus === 'connected';
+
+  return (
+    <div className="pb-3 px-3 sm:px-6 lg:px-8 max-w-[1920px] w-full mx-auto shrink-0 z-30 pointer-events-auto">
+      <footer
+        id="aquachirp-bottom-status-bar"
+        className="bg-[#F9F7F7] border border-[#DBE2EF] rounded-2xl px-4 py-2.5 text-xs font-mono text-[#112D4E] shadow-[0_4px_20px_-2px_rgba(17,45,78,0.06)]"
+      >
+        <div className="w-full flex flex-wrap items-center justify-between gap-3">
+          {/* Left: Real-time Ocean Physics Telemetry Blocks */}
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Sound Speed (c) */}
+            <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-[#DBE2EF] shadow-2xs">
+              <Compass className="w-3.5 h-3.5 text-[#3F72AF]" />
+              <span className="text-[#3F72AF]">Sound Speed (c):</span>
+              <span className="text-[#112D4E] font-bold">
+                <AnimeCounter value={acoustics.soundSpeed} decimals={1} suffix=" m/s" />
+              </span>
+            </div>
+
+            {/* Francois-Garrison Absorption (α) */}
+            <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-[#DBE2EF] shadow-2xs">
+              <Activity className="w-3.5 h-3.5 text-amber-600" />
+              <span className="text-[#3F72AF]">Absorption (α):</span>
+              <span className="text-amber-700 font-bold">
+                <AnimeCounter value={acoustics.absorptionCoefficient} decimals={2} suffix=" dB/km" />
+              </span>
+            </div>
+
+            {/* Range Resolution (ΔR) */}
+            <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-[#DBE2EF] shadow-2xs">
+              <Waves className="w-3.5 h-3.5 text-[#3F72AF]" />
+              <span className="text-[#3F72AF]">Resolution (ΔR):</span>
+              <span className="text-[#112D4E] font-bold">
+                <AnimeCounter value={params.rangeResolution} decimals={2} suffix=" m" />
+              </span>
+            </div>
+
+            {/* Pulse Compression Gain (Gp) */}
+            <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-[#DBE2EF] shadow-2xs">
+              <Zap className="w-3.5 h-3.5 text-[#3F72AF]" />
+              <span className="text-[#3F72AF]">Matched Gain:</span>
+              <span className="text-[#112D4E] font-bold">
+                +<AnimeCounter value={acoustics.pulseCompressionGain} decimals={1} suffix=" dB" />
+              </span>
+            </div>
+
+            {/* Estimated Transmission Loss (TL) */}
+            <div className="hidden lg:flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-[#DBE2EF] shadow-2xs">
+              <Gauge className="w-3.5 h-3.5 text-amber-600" />
+              <span className="text-[#3F72AF]">TL (1km):</span>
+              <span className="text-amber-700 font-bold">
+                <AnimeCounter value={acoustics.transmissionLoss} decimals={1} suffix=" dB" />
+              </span>
+            </div>
+          </div>
+
+          {/* Right: Low-Power Hardware & System Health Status */}
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* DAC DMA Rate */}
+            <div className="flex items-center gap-1 text-[#3F72AF]">
+              <Radio className="w-3 h-3 text-[#3F72AF]" />
+              <span>DAC: <strong className="text-[#112D4E]">{params.dacSampleRate} kSPS</strong></span>
+            </div>
+
+            <span className="text-[#DBE2EF]">|</span>
+
+            {/* STM32 Low Power Sleep Mode Indicator */}
+            <div className="flex items-center gap-1.5">
+              <Cpu className="w-3.5 h-3.5 text-[#3F72AF]" />
+              <span className="text-[#3F72AF]">Core Mode:</span>
+              <span
+                className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                  status.isCpuSleeping
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-300'
+                    : 'bg-amber-50 text-amber-700 border border-amber-300'
+                }`}
+              >
+                {status.isCpuSleeping ? 'SLEEP_WFI' : 'ACTIVE_RUN'}
+              </span>
+            </div>
+
+            <span className="text-[#DBE2EF]">|</span>
+
+            {/* Self-Monitoring Closed-Loop Verification */}
+            <div className="flex items-center gap-1.5">
+              {isSelfMonConnected ? (
+                <span className="flex items-center gap-1 text-emerald-700 font-semibold">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Loopback OK</span>
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-rose-600 font-semibold">
+                  <ShieldAlert className="w-3.5 h-3.5" />
+                  <span>Loopback Disconnected</span>
+                </span>
+              )}
+            </div>
+
+            <span className="text-[#DBE2EF]">|</span>
+
+            {/* Hardware DMA Power Consumption Benchmark */}
+            <div className="hidden sm:flex items-center gap-1 bg-white px-2.5 py-0.5 rounded-lg border border-[#DBE2EF] text-[11px] shadow-2xs">
+              <span className="text-[#3F72AF]">PA Rail:</span>
+              <span className="text-[#112D4E] font-bold">48V / 18.4 mW</span>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+};
