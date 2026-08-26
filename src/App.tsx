@@ -154,7 +154,7 @@ export default function App() {
         chirpRate: modType === 'CW' ? 0 : Math.round((bwKhz / (durMs || 1)) * 100) / 100,
         timeBandwidthProduct: modType === 'CW' ? 1.0 : Math.round(bwKhz * durMs * 10) / 10,
         rangeResolution: 0.5,
-        dacSampleRate: 500,
+        dacSampleRate: 100, // 100 kSPS via TIM3 PWM ARR=639
         sampleCount: 256,
         pulseRepetitionInterval: 100,
       });

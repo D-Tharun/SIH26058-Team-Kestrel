@@ -160,10 +160,10 @@ export const WaterfallSpectrogram: React.FC<WaterfallSpectrogramProps> = ({ data
 
         {/* Axis Label Badges */}
         <div className="absolute top-1.5 left-2 font-mono text-[9px] text-[#DBE2EF] bg-black/50 backdrop-blur-md px-1.5 py-0.5 rounded-lg border border-white/15 pointer-events-none shadow-xs">
-          140 kHz (High)
+          12.0 kHz (High)
         </div>
         <div className="absolute bottom-1.5 left-2 font-mono text-[9px] text-[#DBE2EF] bg-black/50 backdrop-blur-md px-1.5 py-0.5 rounded-lg border border-white/15 pointer-events-none shadow-xs">
-          10 kHz (Low)
+          0.0 kHz (Low)
         </div>
         <div className="absolute bottom-1.5 right-2 font-mono text-[9px] text-[#38BDF8] bg-black/50 backdrop-blur-md px-1.5 py-0.5 rounded-lg border border-white/15 pointer-events-none shadow-xs">
           Live (t = 0)

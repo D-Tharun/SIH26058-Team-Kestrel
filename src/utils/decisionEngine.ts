@@ -257,7 +257,7 @@ export function evaluateAdaptiveDecision(
     chirpRate,
     timeBandwidthProduct,
     rangeResolution,
-    dacSampleRate: 500, // 500 kSPS
+    dacSampleRate: 100, // 100 kSPS (TIM3 ARR=639)
     sampleCount: 256,
     pulseRepetitionInterval: 100, // 100 ms (10 Hz ping rate)
   };

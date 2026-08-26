@@ -154,12 +154,12 @@ export const WaveformOscilloscope: React.FC<WaveformOscilloscopeProps> = ({
             <Activity className="w-3.5 h-3.5 text-[#3F72AF]" /> Live Oscilloscope / Waveform
           </span>
           <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#DBE2EF] border border-[#3F72AF]/30 text-[#112D4E] font-bold">
-            {data.timeSamples.length} SAMPLES DAC DMA
+            {data.timeSamples.length} SAMPLES TIM3 PWM DMA
           </span>
         </div>
 
         <div className="flex items-center gap-2 font-mono text-[10px] text-[#3F72AF]">
-          <span className="text-[#112D4E] font-bold">Fs: {params.dacSampleRate} kSPS</span>
+          <span className="text-[#112D4E] font-bold">Fs: {params.dacSampleRate || 100} kSPS</span>
           <span className="text-[#DBE2EF]">|</span>
           <span>τ: {params.pulseDuration} ms</span>
         </div>
@@ -171,7 +171,7 @@ export const WaveformOscilloscope: React.FC<WaveformOscilloscopeProps> = ({
 
         {/* Reticle Overlay Badges */}
         <div className="absolute top-1.5 left-2 font-mono text-[10px] text-[#38BDF8] bg-black/50 backdrop-blur-md px-2 py-0.5 rounded-lg border border-white/15 pointer-events-none shadow-xs">
-          CH1: ±{(params.amplitude * 0.033).toFixed(2)}V (DAC Out)
+          CH1: ±{(params.amplitude * 0.033).toFixed(2)}V (PA6 PWM Out)
         </div>
         <div className="absolute bottom-1.5 right-2 font-mono text-[10px] text-amber-400 bg-black/50 backdrop-blur-md px-2 py-0.5 rounded-lg border border-white/15 pointer-events-none shadow-xs">
           Window: {params.windowType}

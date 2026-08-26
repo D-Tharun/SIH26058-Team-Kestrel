@@ -89,10 +89,10 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
 
           {/* Right: Low-Power Hardware & System Health Status */}
           <div className="flex items-center gap-2 flex-wrap justify-center md:justify-end text-[11px]">
-            {/* DAC DMA Rate */}
+            {/* TIM3 PWM DMA Rate */}
             <div className="flex items-center gap-1 text-[#3F72AF] shrink-0">
               <Radio className="w-3 h-3 text-[#3F72AF]" />
-              <span>DAC: <strong className="text-[#112D4E]">{params.dacSampleRate} kSPS</strong></span>
+              <span>PWM: <strong className="text-[#112D4E]">{params.dacSampleRate} kSPS</strong></span>
             </div>
 
             <span className="text-[#DBE2EF]">|</span>
