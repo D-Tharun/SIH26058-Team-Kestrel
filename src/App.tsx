@@ -180,26 +180,26 @@ export default function App() {
     buildWaveformData(derivedParams, 0)
   );
 
-  // Real-time animation & DMA tick simulation loop
+  // Real-time animation & DMA tick simulation loop (Demo Mode only)
   useEffect(() => {
     if (isPaused) return;
 
     const interval = setInterval(() => {
+      // Never overwrite real STM32 data when running in hardware mode
+      if (status.hardwareMode) return;
+
       // Advance phase for smooth dynamic waveform evolution
       phaseRef.current = (phaseRef.current + 0.25) % (2 * Math.PI);
 
       const newWaveform = buildWaveformData(derivedParams, phaseRef.current);
       setWaveformData(newWaveform);
 
-      // In Demo Mode, simulate realistic background telemetry fluctuations
-      if (!status.hardwareMode) {
-        setStatus((prev) => ({
-          ...prev,
-          packetsReceived: prev.packetsReceived + 1,
-          isCpuSleeping: Math.random() > 0.65, // DMA autonomous transfer allows MCU sleep
-          loopbackVoltageMv: 3300 + Math.round((Math.random() * 4 - 2) * 10),
-        }));
-      }
+      setStatus((prev) => ({
+        ...prev,
+        packetsReceived: prev.packetsReceived + 1,
+        isCpuSleeping: Math.random() > 0.65, // DMA autonomous transfer allows MCU sleep
+        loopbackVoltageMv: 3300 + Math.round((Math.random() * 4 - 2) * 10),
+      }));
     }, 100);
 
     return () => clearInterval(interval);
