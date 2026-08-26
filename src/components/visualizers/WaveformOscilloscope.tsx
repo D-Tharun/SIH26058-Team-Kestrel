@@ -154,7 +154,7 @@ export const WaveformOscilloscope: React.FC<WaveformOscilloscopeProps> = ({
             <Activity className="w-3.5 h-3.5 text-[#3F72AF]" /> Live Oscilloscope / Waveform
           </span>
           <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#DBE2EF] border border-[#3F72AF]/30 text-[#112D4E] font-bold">
-            64 SAMPLES DAC DMA
+            {data.timeSamples.length} SAMPLES DAC DMA
           </span>
         </div>
 
