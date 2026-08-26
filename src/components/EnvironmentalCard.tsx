@@ -267,61 +267,32 @@ export const EnvironmentalCard: React.FC<EnvironmentalCardProps> = ({
           </div>
         </div>
 
-        {/* 5. pH Level Slider */}
+        {/* 5. Resolution vs Penetration Priority Slider (PB0 / ADC1 CH8) */}
         <div className="space-y-1 bg-[#F9F7F7] p-2.5 rounded-xl border border-[#DBE2EF]">
           <div className="flex items-center justify-between">
             <label className="text-[#112D4E] flex items-center gap-1.5 font-semibold">
-              <Activity className="w-3.5 h-3.5 text-emerald-600" /> Ocean Acidity (pH)
+              <Crosshair className="w-3.5 h-3.5 text-[#3F72AF]" /> Res / Pen Priority
             </label>
             <div className="flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-[#DBE2EF] shadow-2xs">
-              <span className="font-bold text-emerald-700">
-                <AnimeCounter value={inputs.pH} decimals={1} />
+              <span className="font-bold text-[#3F72AF]">
+                <AnimeCounter value={inputs.resPen} decimals={2} />
               </span>
-              <span className="text-[#3F72AF] text-[10px]">pH</span>
+              <span className="text-[#3F72AF] text-[10px]">Ratio</span>
             </div>
           </div>
           <input
             type="range"
-            min={7.0}
-            max={8.6}
-            step={0.1}
-            value={inputs.pH}
-            onChange={(e) => updateField('pH', Number(e.target.value))}
-            className="w-full accent-emerald-600 cursor-pointer h-1.5 bg-[#DBE2EF] rounded-lg"
+            min={0}
+            max={1}
+            step={0.01}
+            value={inputs.resPen}
+            onChange={(e) => updateField('resPen', Number(e.target.value))}
+            className="w-full accent-[#3F72AF] cursor-pointer h-1.5 bg-[#DBE2EF] rounded-lg"
           />
           <div className="flex justify-between text-[10px] text-[#112D4E]/60">
-            <span>7.0 (Acidic)</span>
-            <span>8.1 (Ocean)</span>
-            <span>8.6 (Alkaline)</span>
-          </div>
-        </div>
-
-        {/* 6. Ambient Noise Slider */}
-        <div className="space-y-1 bg-[#F9F7F7] p-2.5 rounded-xl border border-[#DBE2EF]">
-          <div className="flex items-center justify-between">
-            <label className="text-[#112D4E] flex items-center gap-1.5 font-semibold">
-              <Volume2 className="w-3.5 h-3.5 text-amber-500" /> Ambient Sea Noise (NL)
-            </label>
-            <div className="flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-[#DBE2EF] shadow-2xs">
-              <span className="font-bold text-amber-600">
-                <AnimeCounter value={inputs.ambientNoise} />
-              </span>
-              <span className="text-[#3F72AF] text-[10px]">dB</span>
-            </div>
-          </div>
-          <input
-            type="range"
-            min={40}
-            max={100}
-            step={1}
-            value={inputs.ambientNoise}
-            onChange={(e) => updateField('ambientNoise', Number(e.target.value))}
-            className="w-full accent-amber-500 cursor-pointer h-1.5 bg-[#DBE2EF]/60 rounded-lg"
-          />
-          <div className="flex justify-between text-[10px] text-[#112D4E]/60">
-            <span>40 dB (Quiet)</span>
-            <span>70 dB (Shipping)</span>
-            <span>100 dB (Harbor Gale)</span>
+            <span>0.0 (Max Res)</span>
+            <span>0.5 (Balanced)</span>
+            <span>1.0 (Deep Pen)</span>
           </div>
         </div>
       </div>
