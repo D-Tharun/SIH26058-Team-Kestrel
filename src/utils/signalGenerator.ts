@@ -29,7 +29,7 @@ export function generateWaveformSamples(
   phaseOffset: number = 0,
   noiseAmp: number = 0.03
 ): { samples: number[]; envelope: number[] } {
-  const N = params.sampleCount || 64;
+  const N = params.sampleCount || 256;
   const samples: number[] = new Array(N);
   const envelope: number[] = new Array(N);
 
@@ -125,7 +125,7 @@ export function computeFFT32(
     let real = 0;
     let imag = 0;
     for (let n = 0; n < N; n++) {
-      const angle = (2 * Math.PI * k * n) / (numBins * 2);
+      const angle = (2 * Math.PI * k * n) / N;
       real += samples[n] * Math.cos(angle);
       imag -= samples[n] * Math.sin(angle);
     }

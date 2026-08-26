@@ -284,12 +284,12 @@ export const SignalAnalysisView: React.FC<SignalAnalysisViewProps> = ({
                   </div>
 
                   <div className="flex items-center gap-2 text-xs font-mono">
-                    <span className="text-[#3F72AF] font-semibold">Cursor A: {((cursorA / 64) * params.pulseDuration).toFixed(2)} ms</span>
+                    <span className="text-[#3F72AF] font-semibold">Cursor A: {((cursorA / (Math.max(1, data.timeSamples.length - 1))) * params.pulseDuration).toFixed(2)} ms</span>
                     <span className="text-[#DBE2EF]">|</span>
-                    <span className="text-amber-700 font-semibold">Cursor B: {((cursorB / 64) * params.pulseDuration).toFixed(2)} ms</span>
+                    <span className="text-amber-700 font-semibold">Cursor B: {((cursorB / (Math.max(1, data.timeSamples.length - 1))) * params.pulseDuration).toFixed(2)} ms</span>
                     <span className="text-[#DBE2EF]">|</span>
                     <span className="text-[#112D4E] font-bold">
-                      Δt: {(Math.abs(cursorB - cursorA) / 64 * params.pulseDuration).toFixed(2)} ms
+                      Δt: {(Math.abs(cursorB - cursorA) / (Math.max(1, data.timeSamples.length - 1)) * params.pulseDuration).toFixed(2)} ms
                     </span>
                   </div>
                 </div>
@@ -309,7 +309,7 @@ export const SignalAnalysisView: React.FC<SignalAnalysisViewProps> = ({
                     <input
                       type="range"
                       min="0"
-                      max="63"
+                      max={Math.max(1, data.timeSamples.length - 1)}
                       value={cursorA}
                       onChange={(e) => setCursorA(parseInt(e.target.value, 10))}
                       className="w-full h-1.5 bg-[#DBE2EF] rounded appearance-none cursor-pointer accent-[#3F72AF]"
@@ -323,7 +323,7 @@ export const SignalAnalysisView: React.FC<SignalAnalysisViewProps> = ({
                     <input
                       type="range"
                       min="0"
-                      max="63"
+                      max={Math.max(1, data.timeSamples.length - 1)}
                       value={cursorB}
                       onChange={(e) => setCursorB(parseInt(e.target.value, 10))}
                       className="w-full h-1.5 bg-[#DBE2EF] rounded appearance-none cursor-pointer accent-amber-500"

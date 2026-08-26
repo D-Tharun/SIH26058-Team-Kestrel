@@ -65,7 +65,7 @@ export default function App() {
     droppedPackets: 0,
     loopbackVoltageMv: 3298,
     stm32CoreTemp: 42.1,
-    dacBufferLoad: 64,
+    dacBufferLoad: 256,
     lastPingTimestamp: Date.now(),
   });
 
