@@ -170,10 +170,15 @@ export default function App() {
           return Math.max(-1, Math.min(1, (v - meanVal) / maxDev));
         });
 
-        // Compute symmetrical window envelope for the oscilloscope display
+        // Compute exact window envelope for the oscilloscope display based on firmware window_type
         const envelope = normSamples.map((_, i) => {
-          const t = i / (normSamples.length - 1);
-          return Math.sin(t * Math.PI) * 0.95;
+          const n = i;
+          const N = normSamples.length;
+          const a = (2 * Math.PI * n) / (N - 1);
+          if (winType === 'Hamming') return (0.54 - 0.46 * Math.cos(a)) * 0.95;
+          if (winType === 'Hann') return (0.5 * (1 - Math.cos(a))) * 0.95;
+          if (winType === 'Blackman') return (0.42 - 0.5 * Math.cos(a) + 0.08 * Math.cos(2 * a)) * 0.95;
+          return 1.0;
         });
 
         // Compute FFT and Matched Filter dynamically using the ACTUAL firmware parameters

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   WaveformData,
   TransmitterParameters,
@@ -27,12 +27,15 @@ export const LiveTransmitterView: React.FC<LiveTransmitterViewProps> = ({
   data,
   params,
   acoustics,
+  status,
   onManualBurst,
 }) => {
   const handlePing = () => {
     playSonarPing(params.modulationType, params.centerFrequency, params.bandwidth, 300, 0.35);
     onManualBurst();
   };
+
+  const sampleCount = data.timeSamples.length || 256;
 
   return (
     <div id="live-transmitter-deep-dive" className="space-y-4 max-w-[1920px] mx-auto text-white">
@@ -46,11 +49,11 @@ export const LiveTransmitterView: React.FC<LiveTransmitterViewProps> = ({
             <h2 className="text-lg font-bold font-['Plus_Jakarta_Sans',sans-serif] text-white flex items-center gap-2">
               STM32 Software-Defined Sonar Transmitter Core
               <span className="text-xs font-mono px-2 py-0.5 rounded bg-black/40 border border-white/15 text-[#38BDF8]">
-                DMA CIRCULAR TX
+                TIM3 PWM + DMA STREAM
               </span>
             </h2>
             <p className="text-xs font-mono text-[#CBD5E1]">
-              Direct Memory Access (DMA1 Stream 5) driving Dual 12-bit DAC with Timber/Windowing Co-Processor
+              Direct Memory Access (DMA1 Channel 6) driving TIM3 PWM on PA6 with ADC2 Self-Monitor Loopback on PC1
             </p>
           </div>
         </div>
@@ -78,21 +81,21 @@ export const LiveTransmitterView: React.FC<LiveTransmitterViewProps> = ({
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4 text-[#38BDF8]" />
                 <span className="text-sm font-bold font-mono text-white">
-                  DAC Output Voltage Profile s(t) & Instantaneous Phase
+                  Waveform Output Profile s(t) & Instantaneous Phase
                 </span>
               </div>
               <div className="flex items-center gap-2 font-mono text-xs text-[#CBD5E1]">
-                <span className="text-[#38BDF8]">64-Word Circular Buffer</span>
+                <span className="text-[#38BDF8]">{sampleCount}-Sample Buffer</span>
                 <span className="text-white/20">|</span>
-                <span className="text-[#FBBF24]">12-Bit Resolution (0-4095)</span>
+                <span className="text-[#FBBF24]">ADC2 Loopback (PC1)</span>
               </div>
             </div>
 
             {/* Custom High-Res Canvas */}
             <div className="mt-3 glass-panel-nested rounded-lg p-3 border border-white/10">
               <div className="flex justify-between text-[11px] font-mono text-[#CBD5E1] pb-2 border-b border-white/10">
-                <span>+3.30V (Vref+)</span>
-                <span className="text-[#38BDF8] font-semibold">{params.modulationType} Modulated Waveform</span>
+                <span>+3.30V (Vcc)</span>
+                <span className="text-[#38BDF8] font-semibold">{params.modulationType} Modulated Waveform ({params.windowType})</span>
                 <span>0.00V (GND)</span>
               </div>
 
@@ -101,7 +104,7 @@ export const LiveTransmitterView: React.FC<LiveTransmitterViewProps> = ({
                 {data.timeSamples.map((sample, idx) => {
                   const normalizedAmp = (sample + 1) / 2; // 0.0 to 1.0
                   const heightPct = Math.max(4, Math.round(normalizedAmp * 100));
-                  const dacValue = Math.round(normalizedAmp * 4095);
+                  const dacValue = Math.round(normalizedAmp * 639);
 
                   return (
                     <div
@@ -118,7 +121,7 @@ export const LiveTransmitterView: React.FC<LiveTransmitterViewProps> = ({
                       />
                       {/* Hover Tooltip */}
                       <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/80 border border-white/20 text-[10px] font-mono px-2 py-0.5 rounded text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 whitespace-nowrap shadow-lg backdrop-blur-md">
-                        Word[{idx}]: {dacValue} ({(normalizedAmp * 3.3).toFixed(2)}V)
+                        Sample[{idx}]: {dacValue} ({(normalizedAmp * 3.3).toFixed(2)}V)
                       </div>
                     </div>
                   );
@@ -127,8 +130,8 @@ export const LiveTransmitterView: React.FC<LiveTransmitterViewProps> = ({
 
               <div className="flex justify-between text-[10px] font-mono text-[#CBD5E1] pt-2 border-t border-white/10">
                 <span>t = 0.0 μs (Sample #0)</span>
-                <span>Sample Rate: {params.dacSampleRate} kSPS</span>
-                <span>t = {params.pulseDuration} ms (Sample #63)</span>
+                <span>PWM Carrier: 100 kHz</span>
+                <span>t = {params.pulseDuration} ms (Sample #{sampleCount - 1})</span>
               </div>
             </div>
           </div>
@@ -153,7 +156,7 @@ export const LiveTransmitterView: React.FC<LiveTransmitterViewProps> = ({
                     <strong className="text-white">
                       {(params.centerFrequency + params.bandwidth / 2).toFixed(1)} kHz
                     </strong>{' '}
-                    with chirp rate k = {params.chirpRate} kHz/ms.
+                    with pulse duration τ = {params.pulseDuration} ms.
                   </p>
                 </div>
               ) : params.modulationType === 'Barker-13' ? (
@@ -187,33 +190,33 @@ export const LiveTransmitterView: React.FC<LiveTransmitterViewProps> = ({
               <span className="flex items-center gap-1.5">
                 <Cpu className="w-4 h-4 text-[#38BDF8]" /> STM32 Peripherals
               </span>
-              <span className="text-[10px] text-[#38BDF8]">HARDWARE REGISTER MAP</span>
+              <span className="text-[10px] text-[#38BDF8]">F103RB REGISTER MAP</span>
             </h3>
 
             <div className="space-y-2 text-xs font-mono">
               <div className="glass-panel-nested p-2 rounded-lg border border-white/10 flex justify-between items-center">
-                <span className="text-[#CBD5E1]">DAC1_CR (Control):</span>
-                <span className="text-white font-bold">0x00001001 (EN + DMA)</span>
+                <span className="text-[#CBD5E1]">TIM3_CCR1 (PWM PA6):</span>
+                <span className="text-white font-bold">DMA Circular Mode</span>
               </div>
 
               <div className="glass-panel-nested p-2 rounded-lg border border-white/10 flex justify-between items-center">
-                <span className="text-[#CBD5E1]">TIM6_ARR (Trigger):</span>
-                <span className="text-[#38BDF8] font-bold">168 Counts (500 kHz)</span>
+                <span className="text-[#CBD5E1]">TIM3_ARR (Period):</span>
+                <span className="text-[#38BDF8] font-bold">639 Counts (100 kHz)</span>
               </div>
 
               <div className="glass-panel-nested p-2 rounded-lg border border-white/10 flex justify-between items-center">
-                <span className="text-[#CBD5E1]">DMA1_S5NDTR (Words):</span>
-                <span className="text-[#FBBF24] font-bold">64 Words Circular</span>
+                <span className="text-[#CBD5E1]">DMA1_Ch6 (Buffer):</span>
+                <span className="text-[#FBBF24] font-bold">{sampleCount} Samples Circular</span>
               </div>
 
               <div className="glass-panel-nested p-2 rounded-lg border border-white/10 flex justify-between items-center">
-                <span className="text-[#CBD5E1]">Core Junction Temp:</span>
-                <span className="text-white font-bold">41.8 °C</span>
+                <span className="text-[#CBD5E1]">Self-Monitor (ADC2):</span>
+                <span className="text-white font-bold">{status.loopbackVoltageMv} mV (PC1)</span>
               </div>
 
               <div className="glass-panel-nested p-2 rounded-lg border border-white/10 flex justify-between items-center">
-                <span className="text-[#CBD5E1]">Power Amp Rail (Vpa):</span>
-                <span className="text-[#38BDF8] font-bold">48.0 V DC</span>
+                <span className="text-[#CBD5E1]">PA Rail (PWM):</span>
+                <span className="text-[#38BDF8] font-bold">3.3V Logic (PA6)</span>
               </div>
             </div>
           </div>
@@ -260,7 +263,7 @@ export const LiveTransmitterView: React.FC<LiveTransmitterViewProps> = ({
               <div className="glass-panel-nested p-2.5 rounded-lg border border-white/10 text-[11px] text-[#CBD5E1] space-y-1">
                 <div className="flex justify-between">
                   <span className="text-[#CBD5E1]">Transducer Bandwidth:</span>
-                  <span className="text-white font-semibold">20 kHz - 160 kHz</span>
+                  <span className="text-white font-semibold">0.5 kHz - 12.0 kHz (Sonar Band)</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#CBD5E1]">Peak Sound Pressure (SL):</span>
