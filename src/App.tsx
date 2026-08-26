@@ -223,12 +223,10 @@ export default function App() {
 
   // Real-time animation & DMA tick simulation loop (Demo Mode only)
   useEffect(() => {
-    if (isPaused) return;
+    // When in hardware mode or paused, completely skip timer creation
+    if (isPaused || status.hardwareMode) return;
 
     const interval = setInterval(() => {
-      // In hardware mode, real data comes from serial — never run simulation or fake status generators
-      if (status.hardwareMode) return;
-
       // Advance phase for smooth dynamic waveform evolution
       phaseRef.current = (phaseRef.current + 0.25) % (2 * Math.PI);
 
@@ -238,7 +236,7 @@ export default function App() {
       setStatus((prev) => ({
         ...prev,
         packetsReceived: prev.packetsReceived + 1,
-        isCpuSleeping: Math.random() > 0.65, // DMA autonomous transfer allows MCU sleep
+        isCpuSleeping: false,
         loopbackVoltageMv: 3300 + Math.round((Math.random() * 4 - 2) * 10),
       }));
     }, 100);
