@@ -228,7 +228,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen text-[#112D4E] flex flex-col font-['DM_Sans',sans-serif] selection:bg-[#DBE2EF] selection:text-[#112D4E] relative spherical-spectrum-bg bg-fixed">
+    <div className="min-h-screen text-[#112D4E] flex flex-col font-['DM_Sans',sans-serif] selection:bg-[#DBE2EF] selection:text-[#112D4E] relative spherical-spectrum-bg bg-fixed w-full max-w-full overflow-x-hidden">
       {/* 1. Full-Screen Spherical Spectrum Radial Gradient & Velvet Film Grain */}
       <SphericalSpectrum pulseActive={status.isDmaStreaming} />
 
@@ -271,7 +271,7 @@ export default function App() {
       />
 
       {/* 3. Main Tab Content Area with Smooth Framer-Motion Transitions */}
-      <main className="flex-1 max-w-[1920px] w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col relative z-10">
+      <main className="flex-1 max-w-[1920px] w-full mx-auto p-3 sm:p-4 lg:p-6 flex flex-col relative z-10 overflow-x-hidden">
         <AnimatePresence mode="wait">
           {activeTab === 'overview' && (
             <motion.div
