@@ -65,6 +65,7 @@ export default function App() {
     droppedPackets: 0,
     loopbackVoltageMv: 3298,
     stm32CoreTemp: 42.1,
+    pwmBufferLoad: 256,
     dacBufferLoad: 256,
     lastPingTimestamp: Date.now(),
   });
@@ -103,14 +104,49 @@ export default function App() {
         ambientNoise: prev.ambientNoise,
       }));
 
-      // 2. Update real-time hardware status and self-monitor voltage
+      // 2. Extract firmware SNR and ADC2 conditioning fields
+      const rawSnrTx = json.snr_tx_db ?? json.snrTxDb;
+      const parsedSnrTx = typeof rawSnrTx === 'number' ? Number(rawSnrTx.toFixed(1)) : undefined;
+
+      const rawSnrTarget = json.snr_target_db ?? json.snrTargetDb;
+      const parsedSnrTarget = typeof rawSnrTarget === 'number' ? Number(rawSnrTarget.toFixed(1)) : undefined;
+
+      const rawSnrMargin = json.snr_margin_db ?? json.snrMarginDb;
+      const parsedSnrMargin = typeof rawSnrMargin === 'number' ? Number(rawSnrMargin.toFixed(1)) : undefined;
+
+      const rawSnrTargetValid = json.snr_target_valid ?? json.snrTargetValid;
+      const parsedSnrTargetValid = typeof rawSnrTargetValid === 'boolean'
+        ? rawSnrTargetValid
+        : typeof rawSnrTargetValid === 'number'
+          ? rawSnrTargetValid !== 0
+          : undefined;
+
+      const rawAdc2CondOk = json.adc2_conditioning_ok ?? json.adc2ConditioningOk;
+      const parsedAdc2CondOk = typeof rawAdc2CondOk === 'boolean'
+        ? rawAdc2CondOk
+        : typeof rawAdc2CondOk === 'number'
+          ? rawAdc2CondOk !== 0
+          : undefined;
+
+      const rawAdc2Min = json.adc2_min_mv ?? json.adc2MinMv;
+      const parsedAdc2Min = typeof rawAdc2Min === 'number' ? Math.round(rawAdc2Min) : undefined;
+
+      const rawAdc2Max = json.adc2_max_mv ?? json.adc2MaxMv;
+      const parsedAdc2Max = typeof rawAdc2Max === 'number' ? Math.round(rawAdc2Max) : undefined;
+
+      const rawAdc2Mean = json.adc2_mean_mv ?? json.adc2MeanMv;
+      const parsedAdc2Mean = typeof rawAdc2Mean === 'number' ? Math.round(rawAdc2Mean) : undefined;
+
+      // Update real-time hardware status and self-monitor voltage
       const rawSamples = json.adc_samples || json.adcSamples || json.samples;
       setStatus((prev) => {
         let avgMv = prev.loopbackVoltageMv;
-        if (Array.isArray(rawSamples) && rawSamples.length > 0) {
+        if (typeof parsedAdc2Mean === 'number') {
+          avgMv = parsedAdc2Mean;
+        } else if (Array.isArray(rawSamples) && rawSamples.length > 0) {
           const sum = rawSamples.reduce((a: number, b: number) => a + b, 0);
-          const avgDac = sum / rawSamples.length;
-          avgMv = Math.round((avgDac / 4095) * 3300);
+          const avgAdc = sum / rawSamples.length;
+          avgMv = Math.round((avgAdc / 4095) * 3300);
         }
 
         return {
@@ -121,6 +157,14 @@ export default function App() {
           selfMonitorStatus: 'connected',
           packetsReceived: prev.packetsReceived + 1,
           loopbackVoltageMv: avgMv,
+          snrTxDb: parsedSnrTx !== undefined ? parsedSnrTx : prev.snrTxDb,
+          snrTargetDb: parsedSnrTarget,
+          snrMarginDb: parsedSnrMargin,
+          snrTargetValid: parsedSnrTargetValid !== undefined ? parsedSnrTargetValid : false,
+          adc2ConditioningOk: parsedAdc2CondOk !== undefined ? parsedAdc2CondOk : (prev.adc2ConditioningOk ?? true),
+          adc2MinMv: parsedAdc2Min ?? prev.adc2MinMv,
+          adc2MaxMv: parsedAdc2Max ?? prev.adc2MaxMv,
+          adc2MeanMv: parsedAdc2Mean ?? prev.adc2MeanMv,
         };
       });
 
@@ -129,10 +173,15 @@ export default function App() {
       const winTypes = ['Hamming', 'Hann', 'Blackman'] as const;
 
       const rawFc = json.center_freq ?? json.centerFreq ?? json.centerFrequency;
-      const fcKhz = typeof rawFc === 'number' ? (rawFc > 500 ? Number((rawFc / 1000).toFixed(2)) : Number(rawFc.toFixed(2))) : 9.9;
+      const parsedFc = typeof rawFc === 'number' ? (rawFc > 500 ? Number((rawFc / 1000).toFixed(2)) : Number(rawFc.toFixed(2))) : 5.0;
+      const fcKhz = Math.min(10.0, Math.max(1.0, parsedFc));
 
-      const rawBw = json.bandwidth ?? json.bw;
-      const bwKhz = typeof rawBw === 'number' ? (rawBw > 500 ? Number((rawBw / 1000).toFixed(2)) : Number(rawBw.toFixed(2))) : 1.5;
+      const rawBw = json.bandwidth ?? json.bw ?? (typeof json.bandwidth_used_hz === 'number' ? json.bandwidth_used_hz / 1000 : undefined);
+      const parsedBw = typeof rawBw === 'number' ? (rawBw > 500 ? Number((rawBw / 1000).toFixed(2)) : Number(rawBw.toFixed(2))) : 2.0;
+      const bwKhz = Math.min(9.0, Math.max(0.1, parsedBw));
+
+      const fL = Math.max(1.0, Math.round((fcKhz - bwKhz / 2) * 10) / 10);
+      const fH = Math.min(10.0, Math.round((fcKhz + bwKhz / 2) * 10) / 10);
 
       const rawMod = json.waveform_type ?? json.mod_type;
       const modType = typeof rawMod === 'number' && modTypes[rawMod] ? modTypes[rawMod] : 'LFM Chirp';
@@ -140,12 +189,42 @@ export default function App() {
       const rawWin = json.window_type;
       const winType = typeof rawWin === 'number' && winTypes[rawWin] ? winTypes[rawWin] : 'Hamming';
 
-      const durMs = typeof json.duration === 'number' ? Number(json.duration.toFixed(1)) : 10.0;
+      const rawDur = typeof json.duration === 'number' ? Number(json.duration.toFixed(2)) : 2.56;
+      const durMs = Math.min(5.12, Math.max(0.5, rawDur));
       const rawAmp = json.amplitude ?? json.amp;
       const ampPct = typeof rawAmp === 'number' ? (rawAmp <= 1.0 ? Math.round(rawAmp * 100) : Math.round(rawAmp)) : 75;
 
+      const sampleCount = Math.min(512, Math.round(durMs * 100));
+
+      // Firmware-synchronized Bandwidth & Resolution telemetry parsing with safe fallback
+      const cCurrent = calculateSoundSpeed(
+        typeof (json.temperature ?? json.temp) === 'number' ? Number(json.temperature ?? json.temp) : 21.0,
+        typeof (json.salinity ?? json.salt) === 'number' ? Number(json.salinity ?? json.salt) : 34.5,
+        typeof json.depth === 'number' ? Number(json.depth) : 65
+      );
+
+      const rawReqRes = json.requested_resolution_m ?? json.requested_res ?? json.requestedResolutionM;
+      const parsedReqRes = typeof rawReqRes === 'number' ? Number(rawReqRes) : (parsedTurbidity !== undefined ? 0.12 + (parsedTurbidity / 100) * 0.73 : 0.485);
+
+      const rawBwReqHz = json.bandwidth_required_hz ?? json.bw_required ?? json.bandwidthRequiredHz;
+      const parsedBwReqHz = typeof rawBwReqHz === 'number' ? Number(rawBwReqHz) : Math.round((cCurrent / (2 * Math.max(0.001, parsedReqRes))));
+
+      const rawBwUsedHz = json.bandwidth_used_hz ?? json.bw_used ?? json.bandwidthUsedHz;
+      const parsedBwUsedHz = typeof rawBwUsedHz === 'number' ? Number(rawBwUsedHz) : Math.round(bwKhz * 1000);
+
+      const rawBwLimited = json.bandwidth_limited ?? json.bw_limited ?? json.bandwidthLimited;
+      const parsedBwLimited = typeof rawBwLimited === 'boolean' ? rawBwLimited : parsedBwReqHz > 9000;
+
+      const rawAchRes = json.achievable_resolution_m ?? json.achievable_res ?? json.achievableResolutionM;
+      const parsedAchRes = typeof rawAchRes === 'number' ? Number(rawAchRes) : (parsedBwLimited ? Math.round((cCurrent / (2 * parsedBwUsedHz)) * 1000) / 1000 : parsedReqRes);
+
+      const rawBwStatus = json.bandwidth_status ?? json.bw_status ?? json.bandwidthStatus;
+      const parsedBwStatus = typeof rawBwStatus === 'string' ? rawBwStatus : (parsedBwLimited ? 'Bandwidth Limited' : 'Within Hardware Limit');
+
       setFirmwareParams({
         centerFrequency: fcKhz,
+        fL,
+        fH,
         modulationType: modType,
         windowType: winType,
         bandwidth: bwKhz,
@@ -153,14 +232,21 @@ export default function App() {
         amplitude: ampPct,
         chirpRate: modType === 'CW' ? 0 : Math.round((bwKhz / (durMs || 1)) * 100) / 100,
         timeBandwidthProduct: modType === 'CW' ? 1.0 : Math.round(bwKhz * durMs * 10) / 10,
-        rangeResolution: 0.5,
-        dacSampleRate: 100, // 100 kSPS via TIM3 PWM ARR=639
-        sampleCount: 256,
+        rangeResolution: parsedAchRes,
+        pwmSampleRate: 100, // 100 kSPS via TIM3 PWM ARR=639
+        dacSampleRate: 100,
+        sampleCount,
         pulseRepetitionInterval: 100,
+        requestedResolutionM: Math.round(parsedReqRes * 1000) / 1000,
+        bandwidthRequiredHz: parsedBwReqHz,
+        bandwidthUsedHz: parsedBwUsedHz,
+        achievableResolutionM: parsedAchRes,
+        bandwidthLimited: parsedBwLimited,
+        bandwidthStatus: parsedBwStatus,
       });
 
-      // 4. Process live self-monitor waveform from ADC2 on PC1 (e.g. 256 samples)
-      if (Array.isArray(rawSamples) && rawSamples.length >= 16) {
+      // 4. Process live self-monitor waveform from ADC2 on PC1 (variable/decimated sample count)
+      if (Array.isArray(rawSamples) && rawSamples.length >= 8) {
         const minVal = Math.min(...rawSamples);
         const maxVal = Math.max(...rawSamples);
         const meanVal = rawSamples.reduce((a: number, b: number) => a + b, 0) / rawSamples.length;
@@ -182,7 +268,7 @@ export default function App() {
         });
 
         // Compute FFT and Matched Filter dynamically using the ACTUAL firmware parameters
-        const fft = computeFFT32(normSamples, fcKhz, bwKhz, modType);
+        const fft = computeFFT32(normSamples, fcKhz);
         const mf = computeMatchedFilter(normSamples, modType, bwKhz, durMs);
 
         setWaveformData({
@@ -237,7 +323,7 @@ export default function App() {
         ...prev,
         packetsReceived: prev.packetsReceived + 1,
         isCpuSleeping: false,
-        loopbackVoltageMv: 3300 + Math.round((Math.random() * 4 - 2) * 10),
+        loopbackVoltageMv: 3300,
       }));
     }, 100);
 

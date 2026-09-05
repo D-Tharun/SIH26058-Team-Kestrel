@@ -92,7 +92,7 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
             {/* TIM3 PWM DMA Rate */}
             <div className="flex items-center gap-1 text-[#3F72AF] shrink-0">
               <Radio className="w-3 h-3 text-[#3F72AF]" />
-              <span>PWM: <strong className="text-[#112D4E]">{params.dacSampleRate} kSPS</strong></span>
+              <span>PWM: <strong className="text-[#112D4E]">{params.pwmSampleRate || params.dacSampleRate || 100} kSPS</strong></span>
             </div>
 
             <span className="text-[#DBE2EF]">|</span>

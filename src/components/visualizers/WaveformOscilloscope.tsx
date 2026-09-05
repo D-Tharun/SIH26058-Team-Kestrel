@@ -122,7 +122,7 @@ export const WaveformOscilloscope: React.FC<WaveformOscilloscopeProps> = ({
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // Draw Discrete DAC Sample dots
+    // Draw Discrete Waveform Sample dots
     ctx.fillStyle = '#0284C7';
     for (let i = 0; i < N; i += 2) {
       const x = i * stepX;
@@ -159,7 +159,7 @@ export const WaveformOscilloscope: React.FC<WaveformOscilloscopeProps> = ({
         </div>
 
         <div className="flex items-center gap-2 font-mono text-[10px] text-[#3F72AF]">
-          <span className="text-[#112D4E] font-bold">Fs: {params.dacSampleRate || 100} kSPS</span>
+          <span className="text-[#112D4E] font-bold">Fs: {params.pwmSampleRate || params.dacSampleRate || 100} kSPS</span>
           <span className="text-[#DBE2EF]">|</span>
           <span>τ: {params.pulseDuration} ms</span>
         </div>

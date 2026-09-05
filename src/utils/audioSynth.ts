@@ -30,9 +30,9 @@ export function playSonarPing(
     const now = ctx.currentTime;
     const durSec = Math.max(0.12, durationMs / 1000);
 
-    // Map ultrasonic frequency (20-120 kHz) to audible human ear pitch (400 - 1800 Hz)
-    const audibleFc = 400 + ((fcKhz - 20) / 100) * 1200;
-    const audibleBw = Math.max(100, (bandwidthKhz / 30) * 800);
+    // Map 1 - 10 kHz acoustic carrier frequency to audible pitch (350 - 1800 Hz)
+    const audibleFc = 350 + ((fcKhz - 1.0) / 9.0) * 1450;
+    const audibleBw = Math.max(80, (bandwidthKhz / 9.0) * 800);
 
     const masterGain = ctx.createGain();
     masterGain.gain.setValueAtTime(0.001, now);

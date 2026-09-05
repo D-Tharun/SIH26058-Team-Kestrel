@@ -6,3 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
+src - Copy*
+*.zip
+.agents/
