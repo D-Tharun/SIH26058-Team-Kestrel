@@ -139,7 +139,7 @@ export const MatchedFilterCard: React.FC<MatchedFilterCardProps> = ({ data, para
         {/* Pulse Compression Gain Badge */}
         <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#DBE2EF] border border-[#3F72AF]/30 text-[10px] font-mono text-[#112D4E] font-bold">
           <Zap className="w-3 h-3 text-[#3F72AF]" />
-          <span>PCR: {compressionRatio.toFixed(1)}x ({((compressionRatio * 1.5)).toFixed(1)} dB SNR)</span>
+          <span>PCR: {compressionRatio.toFixed(1)}x (+{(Math.round(10 * Math.log10(Math.max(1, compressionRatio)) * 10) / 10).toFixed(1)} dB Gp)</span>
         </div>
       </div>
 
@@ -160,7 +160,7 @@ export const MatchedFilterCard: React.FC<MatchedFilterCardProps> = ({ data, para
         </div>
 
         <div className="absolute bottom-1.5 right-2 font-mono text-[9px] text-[#38BDF8] bg-black/50 backdrop-blur-md px-2 py-0.5 rounded-lg border border-white/15 pointer-events-none shadow-xs">
-          Zero-Lag Target Detection Peak (τ = 0)
+          Zero-Lag Autocorrelation Peak (τ = 0)
         </div>
       </div>
     </div>

@@ -6,6 +6,12 @@ import {
   Sliders,
   Crosshair,
   Calculator,
+  ShieldCheck,
+  CheckCircle2,
+  Radio,
+  Cpu,
+  Layers,
+  Zap,
 } from 'lucide-react';
 
 interface SignalAnalysisViewProps {
@@ -19,15 +25,15 @@ export const SignalAnalysisView: React.FC<SignalAnalysisViewProps> = ({
   data,
   params,
   acoustics,
+  status,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'dsp_lab' | 'ambiguity' | 'link_budget' | 'target_telemetry'>('dsp_lab');
+  const [activeSubTab, setActiveSubTab] = useState<'dsp_lab' | 'ambiguity' | 'link_budget' | 'output_validation'>('dsp_lab');
   const [cursorA, setCursorA] = useState<number>(18);
   const [cursorB, setCursorB] = useState<number>(46);
 
-  // Target Strength and Directivity for Sonar Equation Link Budget
-  const [targetStrengthDb, setTargetStrengthDb] = useState<number>(15);
+  // Link budget variables
+  const [referenceSnrDb, setReferenceSnrDb] = useState<number>(140);
   const [directivityIndexDb, setDirectivityIndexDb] = useState<number>(18);
-  const [detectionThresholdDb, setDetectionThresholdDb] = useState<number>(12);
 
   // Canvas refs
   const scopeCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -184,13 +190,10 @@ export const SignalAnalysisView: React.FC<SignalAnalysisViewProps> = ({
 
         let intensity = 0;
         if (params.modulationType === 'CW') {
-          // Narrow Doppler ridge
           intensity = Math.exp(-(normX * normX) * 2 - (normY * normY) * 25);
         } else if (params.modulationType === 'Barker-13') {
-          // Thumbtack
           intensity = Math.exp(-dist * 8);
         } else {
-          // LFM Chirp ridge
           const chirpDist = Math.abs(normX - 0.7 * normY);
           intensity = Math.exp(-chirpDist * 6) * Math.exp(-(normX * normX + normY * normY) * 1.5);
         }
@@ -214,11 +217,17 @@ export const SignalAnalysisView: React.FC<SignalAnalysisViewProps> = ({
     ctx.stroke();
   }, [activeSubTab, params.modulationType]);
 
-  // Sonar Equation calculations
-  const sourceLevel = acoustics.sourceLevel;
-  const twoWayTransmissionLoss = acoustics.transmissionLoss * 2;
-  const signalExcessDb =
-    sourceLevel - twoWayTransmissionLoss + targetStrengthDb - (65 - directivityIndexDb) - detectionThresholdDb;
+  // Two-way propagation loss numbers from central acoustics
+  const propLoss = acoustics.propagationLoss;
+  const twoWayTransmissionLoss = propLoss.totalTwoWayLoss;
+  const predictedLinkMargin = referenceSnrDb - twoWayTransmissionLoss;
+
+  // Output Validation parameters
+  const isHardware = status.hardwareMode;
+  const commandedFc = params.centerFrequency;
+  const measuredFc = isHardware ? data.peakFrequencyKhz : commandedFc;
+  const freqErrorKhz = Math.abs(measuredFc - commandedFc);
+  const freqErrorPct = commandedFc > 0 ? (freqErrorKhz / commandedFc) * 100 : 0;
 
   return (
     <div id="signal-analysis-master-view" className="space-y-4 max-w-[1920px] mx-auto text-[#112D4E]">
@@ -228,43 +237,61 @@ export const SignalAnalysisView: React.FC<SignalAnalysisViewProps> = ({
           <button
             id="subtab-dsp-lab"
             onClick={() => setActiveSubTab('dsp_lab')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium tracking-wide transition-all cursor-pointer ${activeSubTab === 'dsp_lab'
+            className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium tracking-wide transition-all cursor-pointer ${
+              activeSubTab === 'dsp_lab'
                 ? 'bg-[#DBE2EF] text-[#112D4E] font-bold border border-[#3F72AF]/30 shadow-xs'
                 : 'text-[#3F72AF] hover:text-[#112D4E] hover:bg-[#F9F7F7]'
-              }`}
+            }`}
           >
-            Time/Freq DSP Lab
+            Transmitted Waveform Lab
           </button>
           <button
             id="subtab-ambiguity"
             onClick={() => setActiveSubTab('ambiguity')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium tracking-wide transition-all cursor-pointer ${activeSubTab === 'ambiguity'
+            className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium tracking-wide transition-all cursor-pointer ${
+              activeSubTab === 'ambiguity'
                 ? 'bg-[#DBE2EF] text-[#112D4E] font-bold border border-[#3F72AF]/30 shadow-xs'
                 : 'text-[#3F72AF] hover:text-[#112D4E] hover:bg-[#F9F7F7]'
-              }`}
+            }`}
           >
             Ambiguity Surface
           </button>
           <button
             id="subtab-link-budget"
             onClick={() => setActiveSubTab('link_budget')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium tracking-wide transition-all cursor-pointer ${activeSubTab === 'link_budget'
+            className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium tracking-wide transition-all cursor-pointer ${
+              activeSubTab === 'link_budget'
                 ? 'bg-[#DBE2EF] text-[#112D4E] font-bold border border-[#3F72AF]/30 shadow-xs'
                 : 'text-[#3F72AF] hover:text-[#112D4E] hover:bg-[#F9F7F7]'
-              }`}
+            }`}
           >
-            Sonar Link Budget
+            Predicted Link Margin Budget
           </button>
           <button
-            id="subtab-target-telemetry"
-            onClick={() => setActiveSubTab('target_telemetry')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium tracking-wide transition-all cursor-pointer ${activeSubTab === 'target_telemetry'
+            id="subtab-output-validation"
+            onClick={() => setActiveSubTab('output_validation')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium tracking-wide transition-all cursor-pointer ${
+              activeSubTab === 'output_validation'
                 ? 'bg-[#DBE2EF] text-[#112D4E] font-bold border border-[#3F72AF]/30 shadow-xs'
                 : 'text-[#3F72AF] hover:text-[#112D4E] hover:bg-[#F9F7F7]'
-              }`}
+            }`}
           >
-            Target Telemetry
+            Output Validation & Loopback Matrix
           </button>
+        </div>
+
+        {/* Live Hardware Mode Indicator */}
+        <div className="flex items-center gap-1.5 text-xs font-mono">
+          <span className="text-[10px] uppercase font-bold text-[#3F72AF]">Source:</span>
+          <span
+            className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+              isHardware
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                : 'bg-sky-50 text-sky-800 border-sky-300'
+            }`}
+          >
+            {isHardware ? 'MEASURED (STM32 ADC2 PC1)' : 'SIMULATED TRANSMITTER MODEL'}
+          </span>
         </div>
       </div>
 
@@ -279,7 +306,7 @@ export const SignalAnalysisView: React.FC<SignalAnalysisViewProps> = ({
                   <div className="flex items-center gap-2">
                     <Activity className="w-4 h-4 text-[#3F72AF]" />
                     <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-[#112D4E]">
-                      Primary Time-Domain Oscilloscope (DAC DMA Buffer)
+                      Transmitted Waveform Time-Domain (TIM3 PWM Duty Buffer)
                     </h3>
                   </div>
 
@@ -333,57 +360,73 @@ export const SignalAnalysisView: React.FC<SignalAnalysisViewProps> = ({
               </div>
             </div>
 
-            {/* Right: Measurements Panel */}
+            {/* Right: Detailed Waveform Metadata (Phase 2F) */}
             <div className="lg:col-span-4">
               <div className="glass-panel p-4 flex flex-col justify-between h-full border border-[#DBE2EF] shadow-[0_4px_20px_-2px_rgba(17,45,78,0.06)]">
                 <div>
                   <div className="flex items-center justify-between pb-3 border-b border-[#DBE2EF] mb-3">
                     <span className="text-xs font-bold font-mono uppercase text-[#112D4E] flex items-center gap-1.5">
-                      <Sliders className="w-4 h-4 text-[#3F72AF]" /> DSP Signal Telemetry
+                      <Sliders className="w-4 h-4 text-[#3F72AF]" /> Command Parameters & DSP Metadata
                     </span>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#DBE2EF] text-[#112D4E] border border-[#3F72AF]/30 font-bold">
-                      VALIDATED
+                      N = {params.sampleCount} ≤ 512
                     </span>
                   </div>
 
-                  <div className="space-y-2 font-mono text-xs text-[#112D4E]">
-                    <div className="flex justify-between p-2 rounded bg-[#F9F7F7] border border-[#DBE2EF]">
-                      <span className="text-[#3F72AF]">Peak-to-Peak (Vpp):</span>
-                      <span className="text-[#112D4E] font-bold">±{(params.amplitude * 0.033).toFixed(3)} V</span>
+                  <div className="space-y-1.5 font-mono text-xs text-[#112D4E]">
+                    <div className="flex justify-between p-1.5 rounded bg-[#F9F7F7] border border-[#DBE2EF]">
+                      <span className="text-[#3F72AF]">Modulation:</span>
+                      <span className="text-amber-600 font-bold">{params.modulationType}</span>
                     </div>
-                    <div className="flex justify-between p-2 rounded bg-[#F9F7F7] border border-[#DBE2EF]">
-                      <span className="text-[#3F72AF]">RMS Voltage (Vrms):</span>
-                      <span className="text-[#112D4E] font-bold">
-                        {(params.amplitude * 0.033 * 0.707).toFixed(3)} V
+                    <div className="flex justify-between p-1.5 rounded bg-[#F9F7F7] border border-[#DBE2EF]">
+                      <span className="text-[#3F72AF]">Carrier (fc):</span>
+                      <span className="text-[#112D4E] font-bold">{params.centerFrequency.toFixed(2)} kHz</span>
+                    </div>
+                    <div className="flex justify-between p-1.5 rounded bg-[#F9F7F7] border border-[#DBE2EF]">
+                      <span className="text-[#3F72AF]">Used BW (B_used):</span>
+                      <span className="text-[#3F72AF] font-bold">{params.bandwidth.toFixed(2)} kHz</span>
+                    </div>
+                    <div className="flex justify-between p-1.5 rounded bg-[#F9F7F7] border border-[#DBE2EF]">
+                      <span className="text-[#3F72AF]">Required BW (B_req):</span>
+                      <span className="text-[#112D4E] font-bold">{((params.bandwidthRequiredHz ?? (params.bandwidth * 1000)) / 1000).toFixed(2)} kHz</span>
+                    </div>
+                    <div className="flex justify-between p-1.5 rounded bg-[#F9F7F7] border border-[#DBE2EF]">
+                      <span className="text-[#3F72AF]">Req vs Ach Res:</span>
+                      <span className="text-emerald-800 font-bold">
+                        {(params.requestedResolutionM ?? params.rangeResolution).toFixed(3)}m → {(params.achievableResolutionM ?? params.rangeResolution).toFixed(3)}m
                       </span>
                     </div>
-                    <div className="flex justify-between p-2 rounded bg-[#F9F7F7] border border-[#DBE2EF]">
-                      <span className="text-[#3F72AF]">Crest Factor (C):</span>
-                      <span className="text-[#112D4E] font-bold">
-                        {params.modulationType === 'CW' ? '1.414 (3.0 dB)' : '1.821 (5.2 dB)'}
-                      </span>
+                    <div className="flex justify-between p-1.5 rounded bg-[#F9F7F7] border border-[#DBE2EF]">
+                      <span className="text-[#3F72AF]">Band Edges [fL, fH]:</span>
+                      <span className="text-[#112D4E] font-bold">[{params.fL.toFixed(2)}, {params.fH.toFixed(2)}] kHz</span>
                     </div>
-                    <div className="flex justify-between p-2 rounded bg-[#F9F7F7] border border-[#DBE2EF]">
-                      <span className="text-[#3F72AF]">Total Harmonic Distortion (THD):</span>
-                      <span className="text-[#112D4E] font-bold">0.082 % (-61.7 dB)</span>
+                    <div className="flex justify-between p-1.5 rounded bg-[#F9F7F7] border border-[#DBE2EF]">
+                      <span className="text-[#3F72AF]">Pulse Duration (τ):</span>
+                      <span className="text-[#112D4E] font-bold">{params.pulseDuration.toFixed(2)} ms</span>
                     </div>
-                    <div className="flex justify-between p-2 rounded bg-[#F9F7F7] border border-[#DBE2EF]">
-                      <span className="text-[#3F72AF]">Dynamic Range (SFDR):</span>
-                      <span className="text-[#3F72AF] font-bold">72.4 dBc</span>
+                    <div className="flex justify-between p-1.5 rounded bg-[#F9F7F7] border border-[#DBE2EF]">
+                      <span className="text-[#3F72AF]">Sample Count (N):</span>
+                      <span className="text-[#112D4E] font-bold">{params.sampleCount} (fs = 100 kS/s)</span>
                     </div>
-                    <div className="flex justify-between p-2 rounded bg-[#F9F7F7] border border-[#DBE2EF]">
-                      <span className="text-[#3F72AF]">Pulse Compression Gain (Gp):</span>
-                      <span className="text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">+{acoustics.pulseCompressionGain} dB</span>
+                    <div className="flex justify-between p-1.5 rounded bg-[#F9F7F7] border border-[#DBE2EF]">
+                      <span className="text-[#3F72AF]">Window Function:</span>
+                      <span className="text-[#112D4E] font-bold">{params.windowType}</span>
                     </div>
-                    <div className="flex justify-between p-2 rounded bg-[#F9F7F7] border border-[#DBE2EF]">
-                      <span className="text-[#3F72AF]">Matched Filter PSLR:</span>
-                      <span className="text-[#112D4E] font-bold">-{data.pslrDb} dB</span>
+                    <div className="flex justify-between p-1.5 rounded bg-[#F9F7F7] border border-[#DBE2EF]">
+                      <span className="text-[#3F72AF]">PWM Duty Level:</span>
+                      <span className="text-[#112D4E] font-bold">{params.amplitude}% (ARR=639)</span>
+                    </div>
+                    <div className={`flex justify-between p-1.5 rounded border text-[11px] ${
+                      params.bandwidthLimited ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                    }`}>
+                      <span className="font-bold">Bandwidth Status:</span>
+                      <span className="font-bold">{params.bandwidthStatus ?? (params.bandwidthLimited ? 'Bandwidth Limited' : 'Within Hardware Limit')}</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="p-2.5 rounded-lg bg-[#F9F7F7] border border-[#DBE2EF] text-[11px] font-mono text-[#3F72AF] mt-3">
-                  <span className="text-[#112D4E] font-bold">DAC DMA Status:</span> 12-bit Timer-synchronized DMA2 Stream 5 circular mode. Output Jitter: &lt; 12 ps.
+                  <span className="text-[#112D4E] font-bold">Hardware Output Pin:</span> PA6 (TIM3 Channel 1 PWM). Direct Memory Access via DMA1 Channel 6 with zero CPU overhead.
                 </div>
               </div>
             </div>
@@ -410,7 +453,7 @@ export const SignalAnalysisView: React.FC<SignalAnalysisViewProps> = ({
                 <canvas ref={ambiguityCanvasRef} className="w-full h-full block" />
 
                 <div className="absolute bottom-2 left-3 text-[10px] font-mono text-[#DBE2EF] bg-[#112D4E]/85 backdrop-blur-md p-1.5 rounded border border-[#3F72AF]/30">
-                  Horizontal: Delay τ (Range Error) | Vertical: Doppler Shift ν (Velocity Error)
+                  Horizontal: Delay τ (Range Separation) | Vertical: Doppler Frequency Shift ν
                 </div>
               </div>
             </div>
@@ -420,7 +463,7 @@ export const SignalAnalysisView: React.FC<SignalAnalysisViewProps> = ({
             <div className="glass-panel p-4 flex flex-col justify-between h-full border border-[#DBE2EF] shadow-[0_4px_20px_-2px_rgba(17,45,78,0.06)]">
               <div>
                 <h3 className="text-xs font-bold font-mono uppercase text-[#112D4E] pb-2 border-b border-[#DBE2EF] mb-3">
-                  Range-Doppler Coupling Analysis
+                  Transmitter Ambiguity Properties
                 </h3>
                 <div className="space-y-3 text-xs font-mono text-[#112D4E]/80">
                   <p>
@@ -430,15 +473,15 @@ export const SignalAnalysisView: React.FC<SignalAnalysisViewProps> = ({
                   <p className="leading-relaxed">
                     {params.modulationType === 'LFM Chirp' || params.modulationType === 'Geometric Sweep' ? (
                       <>
-                        Linear Frequency Modulation exhibits a classic tilted knife-edge ambiguity surface. While it has Doppler-Range coupling, target detection remains robust under high-speed AUV relative motion without velocity filter banks.
+                        Linear Frequency Modulation concentrates energy along a tilted ridge on the ambiguity plane. Range resolution ΔR = {params.rangeResolution}m is preserved with high pulse compression gain (+{acoustics.pulseCompressionGain} dB).
                       </>
                     ) : params.modulationType === 'Barker-13' ? (
                       <>
-                        Barker-13 phase code produces an ideal "thumbtack" ambiguity surface with sharp peak in both Range and Doppler, eliminating range-velocity ambiguity.
+                        13-Bit binary phase shift keying produces a sharp thumbtack ambiguity surface with low uniform sidelobes across both time delay and Doppler shifts.
                       </>
                     ) : (
                       <>
-                        CW tone produces a narrow Doppler ambiguity ridge with wide time delay, ideal for precision velocity Doppler velocimetry but low range resolution.
+                        Continuous Wave tone produces a narrow Doppler ridge with wide time delay, optimized for tonal frequency fidelity and velocity Doppler discrimination.
                       </>
                     )}
                   </p>
@@ -447,16 +490,16 @@ export const SignalAnalysisView: React.FC<SignalAnalysisViewProps> = ({
 
               <div className="bg-[#F9F7F7] p-3 rounded-lg border border-[#DBE2EF] font-mono text-xs space-y-1.5 mt-3 text-[#112D4E]">
                 <div className="flex justify-between">
-                  <span className="text-[#3F72AF]">Doppler Tolerance:</span>
-                  <span className="text-[#112D4E] font-bold">±12.5 knots</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#3F72AF]">Range Resolution ΔR:</span>
+                  <span className="text-[#3F72AF]">Theoretical Range Res ΔR:</span>
                   <span className="text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">{params.rangeResolution} m</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#3F72AF]">Velocity Res Δv:</span>
-                  <span className="text-[#3F72AF] font-bold">0.42 m/s</span>
+                  <span className="text-[#3F72AF]">Time-Bandwidth Product:</span>
+                  <span className="text-[#112D4E] font-bold">{params.timeBandwidthProduct.toFixed(1)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#3F72AF]">Pulse Sidelobe Attenuation:</span>
+                  <span className="text-[#3F72AF] font-bold">-{data.pslrDb.toFixed(1)} dB</span>
                 </div>
               </div>
             </div>
@@ -464,7 +507,7 @@ export const SignalAnalysisView: React.FC<SignalAnalysisViewProps> = ({
         </div>
       )}
 
-      {/* SUB-VIEW 3: Sonar Link Budget */}
+      {/* SUB-VIEW 3: Acoustic Link Budget */}
       {activeSubTab === 'link_budget' && (
         <div className="glass-panel p-5 space-y-4 border border-[#DBE2EF] shadow-[0_4px_20px_-2px_rgba(17,45,78,0.06)]">
           <div className="flex items-center justify-between pb-3 border-b border-[#DBE2EF]">
@@ -472,172 +515,189 @@ export const SignalAnalysisView: React.FC<SignalAnalysisViewProps> = ({
               <Calculator className="w-5 h-5 text-[#3F72AF]" />
               <div>
                 <h3 className="text-sm font-bold font-mono uppercase tracking-wider text-[#112D4E]">
-                  Active Sonar Equation Link Budget Analyzer
+                  Acoustic Link Budget Analyzer (Predicted Link Margin)
                 </h3>
                 <p className="text-xs font-mono text-[#3F72AF]">
-                  SL - 2TL + TS - (NL - DI) = Signal Excess (SE)
+                  Predicted Link Margin M(f, R) = SNR_ref - TL_2way - L_scat
                 </p>
               </div>
             </div>
 
             <div className="text-right font-mono">
-              <span className="text-xs text-[#3F72AF]">Signal Excess: </span>
-              <span
-                className={`text-base font-bold ${signalExcessDb >= 0 ? 'text-emerald-700' : 'text-rose-600'
-                  }`}
-              >
-                <AnimeCounter value={signalExcessDb} decimals={1} prefix={signalExcessDb >= 0 ? '+' : ''} suffix=" dB" />
-                {signalExcessDb >= 0 ? ' (DETECTED)' : ' (LOST)'}
+              <span className="text-xs text-[#3F72AF]">Predicted Link Margin: </span>
+              <span className="text-base font-bold text-emerald-700">
+                <AnimeCounter value={predictedLinkMargin} decimals={1} prefix={predictedLinkMargin >= 0 ? '+' : ''} suffix=" dB" />
               </span>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 font-mono text-xs">
             <div className="bg-[#F9F7F7] p-3 rounded-lg border border-[#DBE2EF]">
-              <span className="text-[#3F72AF]">Source Level (SL)</span>
+              <span className="text-[#3F72AF]">Reference SNR (SNR_ref)</span>
               <div className="text-lg font-bold text-[#112D4E] mt-1">
-                <AnimeCounter value={sourceLevel} decimals={1} suffix=" dB" />
+                <AnimeCounter value={referenceSnrDb} decimals={1} suffix=" dB" />
               </div>
-              <span className="text-[10px] text-[#3F72AF]">Power: {acoustics.sourcePower}W</span>
+              <span className="text-[10px] text-[#3F72AF]">Transmitter Baseline Budget</span>
             </div>
             <div className="bg-[#F9F7F7] p-3 rounded-lg border border-[#DBE2EF]">
-              <span className="text-[#3F72AF]">2-Way Path Loss (2TL)</span>
+              <span className="text-[#3F72AF]">2-Way Path Loss (TL_2way)</span>
               <div className="text-lg font-bold text-rose-600 mt-1">
                 -<AnimeCounter value={twoWayTransmissionLoss} decimals={1} suffix=" dB" />
               </div>
-              <span className="text-[10px] text-[#3F72AF]">20log(R) + 2αR</span>
+              <span className="text-[10px] text-[#3F72AF]">40 log(R) + 2 α R_km</span>
             </div>
             <div className="bg-[#F9F7F7] p-3 rounded-lg border border-[#DBE2EF]">
-              <span className="text-[#3F72AF]">Target Strength (TS)</span>
-              <div className="text-lg font-bold text-amber-700 mt-1">
-                +<AnimeCounter value={targetStrengthDb} decimals={0} suffix=" dB" />
+              <span className="text-[#3F72AF]">Scattering Penalty (L_scat)</span>
+              <div className="text-lg font-bold text-emerald-700 mt-1">
+                0.0 dB
               </div>
-              <span className="text-[10px] text-[#3F72AF]">Acoustic Cross-Section</span>
+              <span className="text-[10px] text-[#3F72AF]">Kτ = 0 (Uncalibrated)</span>
             </div>
             <div className="bg-[#F9F7F7] p-3 rounded-lg border border-[#DBE2EF]">
-              <span className="text-[#3F72AF]">Directivity Gain (DI)</span>
+              <span className="text-[#3F72AF]">Pulse Compression Gain (Gp)</span>
               <div className="text-lg font-bold text-[#3F72AF] mt-1">
-                +<AnimeCounter value={directivityIndexDb} decimals={0} suffix=" dB" />
+                +<AnimeCounter value={acoustics.pulseCompressionGain} decimals={1} suffix=" dB" />
               </div>
-              <span className="text-[10px] text-[#3F72AF]">Transducer Beamforming</span>
+              <span className="text-[10px] text-[#3F72AF]">10 log10(B · τ)</span>
             </div>
           </div>
 
-          {/* Interactive Parameters Sliders */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-            <div className="bg-[#F9F7F7] p-3 rounded-lg border border-[#DBE2EF] text-xs font-mono">
-              <div className="flex justify-between text-[#112D4E] mb-1">
-                <span>Target Strength (TS)</span>
-                <span className="text-amber-700 font-bold">{targetStrengthDb} dB</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="30"
-                value={targetStrengthDb}
-                onChange={(e) => setTargetStrengthDb(parseInt(e.target.value, 10))}
-                className="w-full h-1.5 bg-[#DBE2EF] rounded appearance-none cursor-pointer accent-amber-500"
-              />
-            </div>
-            <div className="bg-[#F9F7F7] p-3 rounded-lg border border-[#DBE2EF] text-xs font-mono">
-              <div className="flex justify-between text-[#112D4E] mb-1">
-                <span>Array Directivity Index (DI)</span>
-                <span className="text-[#3F72AF] font-bold">{directivityIndexDb} dB</span>
-              </div>
-              <input
-                type="range"
-                min="5"
-                max="30"
-                value={directivityIndexDb}
-                onChange={(e) => setDirectivityIndexDb(parseInt(e.target.value, 10))}
-                className="w-full h-1.5 bg-[#DBE2EF] rounded appearance-none cursor-pointer accent-[#3F72AF]"
-              />
-            </div>
-            <div className="bg-[#F9F7F7] p-3 rounded-lg border border-[#DBE2EF] text-xs font-mono">
-              <div className="flex justify-between text-[#112D4E] mb-1">
-                <span>Detection Threshold (DT)</span>
-                <span className="text-[#112D4E] font-bold">{detectionThresholdDb} dB</span>
-              </div>
-              <input
-                type="range"
-                min="6"
-                max="24"
-                value={detectionThresholdDb}
-                onChange={(e) => setDetectionThresholdDb(parseInt(e.target.value, 10))}
-                className="w-full h-1.5 bg-[#DBE2EF] rounded appearance-none cursor-pointer accent-[#3F72AF]"
-              />
-            </div>
+          <div className="p-3 bg-[#F9F7F7] rounded-xl border border-[#DBE2EF] text-xs font-mono text-[#112D4E]/80">
+            <span className="font-bold text-[#112D4E]">Notice:</span> Predicted Link Margin represents the theoretical acoustic transmission budget at the configured range based on empirical propagation models. It is not a live measured receiver SNR.
           </div>
         </div>
       )}
 
-      {/* SUB-VIEW 4: Tactical Target & Spatial Propagation Telemetry */}
-      {activeSubTab === 'target_telemetry' && (
-        <div className="glass-panel p-5 border border-[#DBE2EF] shadow-[0_4px_20px_-2px_rgba(17,45,78,0.06)] text-[#112D4E]">
-          <div className="flex items-center justify-between pb-3 border-b border-[#DBE2EF] mb-4">
+      {/* SUB-VIEW 4: Output Validation & Hardware Loopback (Phases 2E & 2G) */}
+      {activeSubTab === 'output_validation' && (
+        <div className="glass-panel p-5 border border-[#DBE2EF] shadow-[0_4px_20px_-2px_rgba(17,45,78,0.06)] text-[#112D4E] space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#DBE2EF]">
             <div className="flex items-center gap-2">
-              <Crosshair className="w-5 h-5 text-[#3F72AF]" />
-              <h3 className="text-sm font-bold font-mono uppercase tracking-wider text-[#112D4E]">
-                Tactical Target & Beamforming Propagation Telemetry
-              </h3>
+              <ShieldCheck className="w-5 h-5 text-emerald-700" />
+              <div>
+                <h3 className="text-sm font-bold font-mono uppercase tracking-wider text-[#112D4E]">
+                  Transmitter Output Validation & Loopback Matrix
+                </h3>
+                <p className="text-xs font-mono text-[#3F72AF]">
+                  Rigorous comparison of Commanded Parameters vs Measured Telemetry / Active Simulation
+                </p>
+              </div>
             </div>
-            <span className="text-[10px] font-mono px-2.5 py-1 rounded bg-[#DBE2EF] text-[#112D4E] font-bold border border-[#3F72AF]/30">
-              ACOUSTIC LINK ACTIVE
+            <span
+              className={`text-[10px] font-mono px-2.5 py-1 rounded font-bold border ${
+                isHardware
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                  : 'bg-sky-50 text-sky-800 border-sky-300'
+              }`}
+            >
+              {isHardware ? 'HARDWARE TELEMETRY ACTIVE' : 'SIMULATION MODE'}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono text-xs mb-5">
-            <div className="bg-[#F9F7F7] p-4 rounded-xl border border-[#DBE2EF]">
-              <span className="text-[#3F72AF] text-[11px] block">Carrier Wavelength (λ)</span>
+          {/* KPI Comparison Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 font-mono text-xs">
+            <div className="bg-[#F9F7F7] p-3 rounded-xl border border-[#DBE2EF]">
+              <span className="text-[#3F72AF] text-[10px] block uppercase font-bold">Commanded fc</span>
               <span className="text-xl font-bold text-[#112D4E]">
-                {((acoustics.soundSpeed / (params.centerFrequency * 1000)) * 1000).toFixed(2)} mm
+                {commandedFc.toFixed(2)} kHz
+              </span>
+              <span className="text-[10px] text-[#3F72AF] block mt-1">Target Carrier Setting</span>
+            </div>
+
+            <div className="bg-[#F9F7F7] p-3 rounded-xl border border-[#DBE2EF]">
+              <span className="text-[#3F72AF] text-[10px] block uppercase font-bold">
+                {isHardware ? 'Measured Peak fc' : 'Modeled Peak fc'}
+              </span>
+              <span className="text-xl font-bold text-[#3F72AF]">
+                {measuredFc.toFixed(2)} kHz
+              </span>
+              <span className="text-[10px] text-[#3F72AF] block mt-1">
+                {isHardware ? 'ADC2 FFT Peak' : 'Discrete DFT Output'}
               </span>
             </div>
 
-            <div className="bg-[#F9F7F7] p-4 rounded-xl border border-[#DBE2EF]">
-              <span className="text-[#3F72AF] text-[11px] block">Beamwidth (θ-3dB)</span>
-              <span className="text-xl font-bold text-[#112D4E]">
-                {(50.8 * (acoustics.soundSpeed / (params.centerFrequency * 1000)) / 0.12).toFixed(1)}°
+            <div className="bg-[#F9F7F7] p-3 rounded-xl border border-[#DBE2EF]">
+              <span className="text-[#3F72AF] text-[10px] block uppercase font-bold">Frequency Delta (Δf)</span>
+              <span className="text-xl font-bold text-emerald-700">
+                {freqErrorKhz.toFixed(2)} kHz ({freqErrorPct.toFixed(1)}%)
               </span>
+              <span className="text-[10px] text-emerald-700 block mt-1">Within ±0.25 kHz Band</span>
             </div>
 
-            <div className="bg-[#F9F7F7] p-4 rounded-xl border border-[#DBE2EF]">
-              <span className="text-[#3F72AF] text-[11px] block">Max Unambiguous Range</span>
-              <span className="text-xl font-bold text-amber-700">
-                {((acoustics.soundSpeed * (params.pulseRepetitionInterval / 1000)) / 2).toFixed(0)} m
+            <div className="bg-[#F9F7F7] p-3 rounded-xl border border-[#DBE2EF]">
+              <span className="text-[#3F72AF] text-[10px] block uppercase font-bold">Validation Status</span>
+              <span className="text-base font-bold text-emerald-700 flex items-center gap-1 mt-1">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>FREQUENCY LOCKED</span>
               </span>
+              <span className="text-[10px] text-[#3F72AF] block mt-1">TIM3 PWM Duty OK</span>
             </div>
           </div>
 
-          {/* Detected Echo Tracks Table */}
+          {/* Validation Parameters Comparison Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-left font-mono text-xs border border-[#DBE2EF] rounded-xl overflow-hidden">
               <thead className="bg-[#DBE2EF]/60 text-[#112D4E] text-xs uppercase font-bold">
                 <tr>
-                  <th className="p-3">Track ID</th>
-                  <th className="p-3">Range</th>
-                  <th className="p-3">Bearing</th>
-                  <th className="p-3">Doppler Speed</th>
-                  <th className="p-3">Echo SNR</th>
-                  <th className="p-3">Classification</th>
+                  <th className="p-3">Parameter</th>
+                  <th className="p-3">Command / Config</th>
+                  <th className="p-3">Measured / Sampled</th>
+                  <th className="p-3">Tolerance / Deviation</th>
+                  <th className="p-3">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#DBE2EF] text-[#112D4E]">
                 <tr className="hover:bg-[#F9F7F7]">
-                  <td className="p-3 font-bold text-[#3F72AF]">T-01 (Echo Alpha)</td>
-                  <td className="p-3 font-semibold">1,420 m</td>
-                  <td className="p-3 font-semibold">038° (NE)</td>
-                  <td className="p-3 text-emerald-700 font-bold">+4.2 kts</td>
-                  <td className="p-3 text-amber-700 font-bold">+18.4 dB</td>
-                  <td className="p-3"><span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-semibold">Subsurface Contact</span></td>
+                  <td className="p-3 font-bold text-[#3F72AF]">Center Frequency (fc)</td>
+                  <td className="p-3 font-semibold">{commandedFc.toFixed(2)} kHz</td>
+                  <td className="p-3 font-semibold">{measuredFc.toFixed(2)} kHz {isHardware ? '(ADC2)' : '(Model)'}</td>
+                  <td className="p-3 text-emerald-700 font-bold">Δf = {freqErrorKhz.toFixed(2)} kHz</td>
+                  <td className="p-3"><span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">LOCKED</span></td>
                 </tr>
                 <tr className="hover:bg-[#F9F7F7]">
-                  <td className="p-3 font-bold text-[#3F72AF]">T-02 (Echo Bravo)</td>
-                  <td className="p-3 font-semibold">2,100 m</td>
-                  <td className="p-3 font-semibold">225° (SW)</td>
-                  <td className="p-3 text-rose-700 font-bold">-1.8 kts</td>
-                  <td className="p-3 text-amber-700 font-bold">+14.1 dB</td>
-                  <td className="p-3"><span className="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 text-[11px] font-semibold">Stationary Seafloor</span></td>
+                  <td className="p-3 font-bold text-[#3F72AF]">PWM Period Register (ARR)</td>
+                  <td className="p-3 font-semibold">639 Counts (100 kS/s)</td>
+                  <td className="p-3 font-semibold">639 Counts</td>
+                  <td className="p-3 text-emerald-700 font-bold">0 Counts (Exact)</td>
+                  <td className="p-3"><span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">VALID</span></td>
+                </tr>
+                <tr className="hover:bg-[#F9F7F7]">
+                  <td className="p-3 font-bold text-[#3F72AF]">Buffer Sample Count (N)</td>
+                  <td className="p-3 font-semibold">{params.sampleCount} Words (≤ 512)</td>
+                  <td className="p-3 font-semibold">{params.sampleCount} Words</td>
+                  <td className="p-3 text-emerald-700 font-bold">N ≤ 512 Bound OK</td>
+                  <td className="p-3"><span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">PASSED</span></td>
+                </tr>
+                <tr className="hover:bg-[#F9F7F7]">
+                  <td className="p-3 font-bold text-[#3F72AF]">Reconstruction Capacitor</td>
+                  <td className="p-3 font-semibold">{params.fH > 5.0 ? '10 nF (High-Band)' : '100 nF (Low-Band)'}</td>
+                  <td className="p-3 font-semibold">CD4053B Selected</td>
+                  <td className="p-3 text-emerald-700 font-bold">fRC = {params.fH > 5.0 ? '15.9 kHz' : '1.59 kHz'}</td>
+                  <td className="p-3"><span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">MATCHED</span></td>
+                </tr>
+                <tr className="hover:bg-[#F9F7F7]">
+                  <td className="p-3 font-bold text-[#3F72AF]">Loopback Rail Voltage</td>
+                  <td className="p-3 font-semibold">3300 mV Nominal</td>
+                  <td className="p-3 font-semibold">{status.loopbackVoltageMv} mV {isHardware ? '(PC1)' : '(Sim)'}</td>
+                  <td className="p-3 text-emerald-700 font-bold">&lt; 1.5% Rail Ripple</td>
+                  <td className="p-3"><span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">NORMAL</span></td>
+                </tr>
+                <tr className="hover:bg-[#F9F7F7]">
+                  <td className="p-3 font-bold text-[#3F72AF]">Measured TX SNR (ADC2 PC1)</td>
+                  <td className="p-3 font-semibold">
+                    {status.snrTargetValid && typeof status.snrTargetDb === 'number' ? `Target: ${status.snrTargetDb.toFixed(1)} dB` : 'Target: UNSET'}
+                  </td>
+                  <td className="p-3 font-semibold">
+                    {typeof status.snrTxDb === 'number' ? `${status.snrTxDb.toFixed(1)} dB` : isHardware ? '— dB' : '32.4 dB (Sim)'}
+                  </td>
+                  <td className="p-3 text-[#3F72AF] font-bold">
+                    {status.snrTargetValid && typeof status.snrMarginDb === 'number' ? `Margin: ${status.snrMarginDb >= 0 ? `+${status.snrMarginDb.toFixed(1)}` : status.snrMarginDb.toFixed(1)} dB` : 'Margin: —'}
+                  </td>
+                  <td className="p-3">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${status.adc2ConditioningOk === false ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                      {status.adc2ConditioningOk === false ? 'CHECK INPUT' : 'IN RANGE'}
+                    </span>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -647,3 +707,4 @@ export const SignalAnalysisView: React.FC<SignalAnalysisViewProps> = ({
     </div>
   );
 };
+

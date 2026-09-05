@@ -104,7 +104,7 @@ export const LiveTransmitterView: React.FC<LiveTransmitterViewProps> = ({
                 {data.timeSamples.map((sample, idx) => {
                   const normalizedAmp = (sample + 1) / 2; // 0.0 to 1.0
                   const heightPct = Math.max(4, Math.round(normalizedAmp * 100));
-                  const dacValue = Math.round(normalizedAmp * 639);
+                  const pwmDutyValue = Math.round(normalizedAmp * 639);
 
                   return (
                     <div
@@ -121,7 +121,7 @@ export const LiveTransmitterView: React.FC<LiveTransmitterViewProps> = ({
                       />
                       {/* Hover Tooltip */}
                       <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/80 border border-white/20 text-[10px] font-mono px-2 py-0.5 rounded text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 whitespace-nowrap shadow-lg backdrop-blur-md">
-                        Sample[{idx}]: {dacValue} ({(normalizedAmp * 3.3).toFixed(2)}V)
+                        Duty[{idx}]: {pwmDutyValue}/639 ({(normalizedAmp * 3.3).toFixed(2)}V)
                       </div>
                     </div>
                   );
@@ -184,6 +184,75 @@ export const LiveTransmitterView: React.FC<LiveTransmitterViewProps> = ({
 
         {/* Right Col: STM32 Hardware Registers & Power Amp Telemetry */}
         <div className="space-y-4">
+          {/* Measured TX SNR & ADC2 Conditioning Card (Electrical Self-Monitor) */}
+          <div className="glass-panel p-4 border border-cyan-500/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+            <div className="flex items-center justify-between pb-2 mb-3 border-b border-white/10">
+              <h3 className="text-xs font-bold font-mono uppercase text-[#CBD5E1] flex items-center gap-1.5">
+                <Radio className="w-4 h-4 text-[#38BDF8]" /> Measured TX SNR
+              </h3>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-black/40 border border-white/15 text-[#38BDF8] font-bold">
+                ADC2 / PC1
+              </span>
+            </div>
+
+            <div className="space-y-2.5 text-xs font-mono">
+              {/* SNR_TX Primary readout */}
+              <div className="glass-panel-nested p-2.5 rounded-lg border border-white/10 flex justify-between items-center">
+                <span className="text-[#CBD5E1]">SNR_TX:</span>
+                <span className="text-white font-bold text-sm">
+                  {typeof status.snrTxDb === 'number'
+                    ? `${status.snrTxDb.toFixed(1)} dB`
+                    : status.hardwareMode
+                    ? '— dB'
+                    : '32.4 dB'}
+                </span>
+              </div>
+
+              {/* Target & Margin Readout */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="glass-panel-nested p-2 rounded-lg border border-white/10">
+                  <div className="text-[10px] text-[#CBD5E1] uppercase">Target</div>
+                  <div className="font-bold text-white mt-0.5">
+                    {status.snrTargetValid && typeof status.snrTargetDb === 'number'
+                      ? `${status.snrTargetDb.toFixed(1)} dB`
+                      : 'UNSET'}
+                  </div>
+                </div>
+                <div className="glass-panel-nested p-2 rounded-lg border border-white/10">
+                  <div className="text-[10px] text-[#CBD5E1] uppercase">Margin</div>
+                  <div className="font-bold text-[#38BDF8] mt-0.5">
+                    {status.snrTargetValid && typeof status.snrMarginDb === 'number'
+                      ? `${status.snrMarginDb >= 0 ? `+${status.snrMarginDb.toFixed(1)}` : status.snrMarginDb.toFixed(1)} dB`
+                      : '—'}
+                  </div>
+                </div>
+              </div>
+
+              {/* ADC2 PC1 Conditioning Status */}
+              <div className="glass-panel-nested p-2 rounded-lg border border-white/10 flex justify-between items-center">
+                <span className="text-[#CBD5E1] text-[11px]">PC1 Conditioning:</span>
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                    status.adc2ConditioningOk === false
+                      ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                      : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                  }`}
+                >
+                  {status.adc2ConditioningOk === false ? 'CHECK INPUT' : 'IN RANGE'}
+                </span>
+              </div>
+
+              {/* Small diagnostic line if telemetry exists */}
+              {(status.adc2MinMv !== undefined || status.adc2MaxMv !== undefined || status.adc2MeanMv !== undefined || status.loopbackVoltageMv !== undefined) && (
+                <div className="flex justify-between text-[10px] text-[#94A3B8] px-1 pt-0.5 font-mono">
+                  <span>Min: {status.adc2MinMv ?? 120} mV</span>
+                  <span>Max: {status.adc2MaxMv ?? 3180} mV</span>
+                  <span>Mean: {status.adc2MeanMv ?? status.loopbackVoltageMv} mV</span>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Hardware Register Status Card */}
           <div className="glass-panel p-4 border border-cyan-500/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
             <h3 className="text-xs font-bold font-mono uppercase text-[#CBD5E1] mb-3 flex items-center justify-between">

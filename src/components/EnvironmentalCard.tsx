@@ -91,10 +91,10 @@ export const EnvironmentalCard: React.FC<EnvironmentalCardProps> = ({
           </div>
           <div>
             <h2 className="text-sm font-bold font-['Plus_Jakarta_Sans',sans-serif] uppercase tracking-wider text-[#112D4E]">
-              Environmental Conditions
+              Environmental State
             </h2>
             <p className="text-[11px] font-mono text-[#3F72AF]">
-              {status.hardwareMode ? 'STM32 Telemetry Sensors (Live)' : 'Real-time Simulation Matrix'}
+              {status.hardwareMode ? 'Live CTD Hardware Telemetry' : 'Simulated Oceanographic Profile'}
             </p>
           </div>
         </div>
@@ -110,7 +110,7 @@ export const EnvironmentalCard: React.FC<EnvironmentalCardProps> = ({
                 : 'bg-[#F9F7F7] hover:bg-[#DBE2EF]/60 text-[#112D4E] border-[#DBE2EF]'
             }`}
           >
-            {status.hardwareMode ? 'Hardware Mode' : 'Demo Simulator'}
+            {status.hardwareMode ? 'Hardware Telemetry' : 'Simulation Mode'}
           </button>
 
           {/* Reset Defaults button */}
@@ -129,7 +129,7 @@ export const EnvironmentalCard: React.FC<EnvironmentalCardProps> = ({
       <div className="py-2.5 border-b border-[#DBE2EF]">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[10px] font-mono uppercase tracking-wider text-[#3F72AF] font-semibold flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-[#3F72AF]" /> Tactical Ocean Profiles
+            <Sparkles className="w-3 h-3 text-[#3F72AF]" /> Empirical Ocean Profiles
           </span>
           <span className="text-[10px] font-mono text-[#112D4E]/60">Click to load</span>
         </div>
@@ -225,16 +225,16 @@ export const EnvironmentalCard: React.FC<EnvironmentalCardProps> = ({
           <input
             type="range"
             min={-2}
-            max={35}
+            max={45}
             step={0.5}
             value={inputs.temperature}
-            onChange={(e) => updateField('temperature', Number(e.target.value))}
+            onChange={(e) => updateField('temperature', Math.min(45, Math.max(-2, Number(e.target.value))))}
             className="w-full accent-rose-500 cursor-pointer h-1.5 bg-[#DBE2EF] rounded-lg"
           />
           <div className="flex justify-between text-[10px] text-[#112D4E]/60">
             <span>-2 °C (Arctic)</span>
-            <span>15 °C</span>
-            <span>35 °C (Tropical)</span>
+            <span>20 °C</span>
+            <span>45 °C (Tropical)</span>
           </div>
         </div>
 

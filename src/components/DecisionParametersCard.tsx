@@ -35,27 +35,27 @@ export const DecisionParametersCard: React.FC<DecisionParametersCardProps> = ({
           </div>
           <div>
             <h2 className="text-xs font-bold font-['Plus_Jakarta_Sans',sans-serif] uppercase tracking-wider text-[#112D4E]">
-              Commanded Carrier & Decisions
+              Commanded Carrier & Synthesizer State
             </h2>
             <p className="text-[11px] font-mono text-[#3F72AF]">
-              Adaptive STM32 DMA Output Registers
+              Deterministic STM32 TIM3 PWM Registers
             </p>
           </div>
         </div>
 
-        {/* Confidence Badge */}
+        {/* Optimum Badge */}
         <div className="flex items-center gap-1 bg-[#DBE2EF] px-2 py-0.5 rounded-full border border-[#3F72AF]/30 text-[#112D4E] text-[10px] font-mono font-bold">
           <Activity className="w-3 h-3 text-[#3F72AF]" />
-          <span>{(trace.confidence * 100).toFixed(0)}% MATCH</span>
+          <span>PREDICTED OPTIMUM</span>
         </div>
       </div>
 
       {/* Main Focus: Center Frequency Big Metric */}
       <div className="my-3 p-3.5 rounded-xl bg-[#F9F7F7] border border-[#DBE2EF] flex flex-col justify-between relative overflow-hidden">
         <div className="flex items-center justify-between font-mono text-xs">
-          <span className="text-[#3F72AF] uppercase tracking-wide font-semibold">Target Carrier (fc)</span>
+          <span className="text-[#3F72AF] uppercase tracking-wide font-semibold">Commanded Carrier (fc)</span>
           <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#DBE2EF] text-[#112D4E] border border-[#3F72AF]/30">
-            AUTO-TUNED
+            argmax M(fc)
           </span>
         </div>
 
@@ -78,10 +78,26 @@ export const DecisionParametersCard: React.FC<DecisionParametersCardProps> = ({
             </strong>
           </span>
           <span>
-            Bandwidth:{' '}
+            Bandwidth (B_used):{' '}
             <strong className="text-[#3F72AF]">
-              <AnimeCounter value={params.bandwidth} decimals={1} suffix=" kHz" />
+              <AnimeCounter value={params.bandwidth} decimals={2} suffix=" kHz" />
             </strong>
+          </span>
+        </div>
+
+        {/* Resolution & Bandwidth Status Strip */}
+        <div className="flex items-center justify-between font-mono text-[10px] pt-1.5 mt-1 border-t border-dashed border-[#DBE2EF]">
+          <span>
+            Req: <strong className="text-[#112D4E]">{(params.requestedResolutionM ?? params.rangeResolution).toFixed(3)}m</strong>
+            {' → '}
+            Ach: <strong className="text-emerald-800">{(params.achievableResolutionM ?? params.rangeResolution).toFixed(3)}m</strong>
+          </span>
+          <span className={`px-1.5 py-0.2 rounded font-bold border ${
+            params.bandwidthLimited
+              ? 'bg-amber-50 text-amber-900 border-amber-300'
+              : 'bg-emerald-50 text-emerald-800 border-emerald-300'
+          }`}>
+            {params.bandwidthStatus ?? (params.bandwidthLimited ? 'BW Limited' : 'Within Limit')}
           </span>
         </div>
       </div>
@@ -138,14 +154,14 @@ export const DecisionParametersCard: React.FC<DecisionParametersCardProps> = ({
             </div>
           </div>
 
-          {/* DAC Amplitude */}
+          {/* PWM Amplitude */}
           <div className="bg-[#F9F7F7] p-2 rounded-lg border border-[#DBE2EF] hover:border-[#3F72AF] transition-colors">
-            <div className="text-[10px] text-[#3F72AF]">DAC Output Level</div>
+            <div className="text-[10px] text-[#3F72AF]">PWM Duty Level</div>
             <div className="font-bold text-[#112D4E] mt-0.5">
               <AnimeCounter value={params.amplitude} suffix="%" />
             </div>
             <div className="text-[9px] text-[#112D4E]/60">
-              {(params.amplitude * 0.033).toFixed(2)} V Peak (3.3V max)
+              {(params.amplitude * 0.033).toFixed(2)} V Peak (PA6 PWM Out)
             </div>
           </div>
 
