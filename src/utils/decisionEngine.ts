@@ -90,19 +90,19 @@ export function evaluateAdaptiveDecision(
   let modulation: ModulationType = 'LFM Chirp';
   let pulseDuration = 3.0; // ms (tau <= 5.12 ms for N <= 512 at fs = 100 kS/s)
 
-  if (ambientNoise > 85) {
+  if (ambientNoise > 85 || depth > 80) {
     // High ambient noise & clutter -> Barker-13 phase coding
     modulation = 'Barker-13';
     pulseDuration = 3.9; // 13 chips * 0.3 ms = 3.9 ms (N = 390 samples at 100 kS/s)
     rules.push({
       id: 'MOD_BARKER_HIGH_NOISE',
-      condition: `Elevated Ambient Noise (${ambientNoise} dB)`,
+      condition: `Elevated Ambient Noise (${ambientNoise} dB) OR Depth > 80m`,
       action: 'Engaged Barker-13 Binary Phase Coding (BPSK)',
       active: true,
       category: 'modulation',
       impact: 'Provides 11.1 dB pulse compression gain with sharp thumbtack ambiguity for clutter rejection',
     });
-    reasoningSteps.push(`Ambient noise (${ambientNoise} dB) exceeds threshold -> Barker-13 BPSK selected for high SNR gain.`);
+    reasoningSteps.push(`Ambient noise or depth threshold exceeded -> Barker-13 BPSK selected for high SNR gain.`);
   } else if (resPen > 0.7) {
     // High penetration priority -> Geometric / Logarithmic frequency sweep
     modulation = 'Geometric Sweep';
