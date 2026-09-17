@@ -116,10 +116,23 @@ export function evaluateAdaptiveDecision(
       impact: 'Doppler-tolerant wideband energy concentration for deep sediment penetration',
     });
     reasoningSteps.push(`High penetration requested -> Geometric Sweep configured with wide fractional bandwidth.`);
-  } else if (depth < 25 && turbidity < 15 && ambientNoise < 60 && resPen < 0.2) {
+  } else if (turbidity > 35 || resPen > 0.4) {
+    // Standard Pulse Compression need: LFM Chirp
+    modulation = 'LFM Chirp';
+    pulseDuration = 2.56; // 2.56 ms
+    rules.push({
+      id: 'MOD_LFM_CHIRP_HIGH_ATTEN',
+      condition: `Turbidity (${turbidity} NTU) > 35 OR ResPen > 0.40`,
+      action: `Selected LFM Chirp (${bandwidthKhz.toFixed(1)} kHz BW)`,
+      active: true,
+      category: 'modulation',
+      impact: 'Pulse compression allows high transmitted energy without peaking amplifier voltage limit',
+    });
+    reasoningSteps.push(`High Turbidity or moderate penetration -> LFM Chirp selected for pulse compression.`);
+  } else if (depth < 25 && turbidity < 15 && ambientNoise < 60) {
     // Pristine shallow water -> Continuous Wave (CW) tonal for Doppler measurement
     modulation = 'CW';
-    pulseDuration = 2.56; // 2.56 ms (N = 256 samples at 100 kS/s)
+    pulseDuration = 2.56; // 2.56 ms
     rules.push({
       id: 'MOD_CW_SHALLOW',
       condition: `Clean Shallow Profile (Depth ${depth}m, Turbidity ${turbidity} NTU, Noise ${ambientNoise} dB)`,
@@ -132,7 +145,7 @@ export function evaluateAdaptiveDecision(
   } else {
     // Standard ocean survey profile -> Linear Frequency Modulated (LFM) Chirp
     modulation = 'LFM Chirp';
-    pulseDuration = 2.56; // 2.56 ms (N = 256 samples at 100 kS/s)
+    pulseDuration = 2.56; // 2.56 ms
     rules.push({
       id: 'MOD_LFM_CHIRP',
       condition: 'Standard survey acoustic profile',
