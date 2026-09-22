@@ -266,6 +266,9 @@ All waveforms were measured at the FINAL WAVE output node using a Rigol DS1054Z 
 
 The transmitter signal chain was measured at 3.3 V using a digital multimeter connected in series with the supply.
 
+![DMM Measurement](docs/images/dmm_high.png)
+![Power Validation](docs/images/power_varada.png)
+
 | Waveform Mode | Measured Power | Equivalent Current |
 |---|---:|---:|
 | CW | 8.25 mW | 2.50 mA |
@@ -281,6 +284,8 @@ Across all tested waveform modes, the measured signal-chain power remained withi
 ## AUV Mechanical Integration
 
 A 3D CAD enclosure was developed to explore the mechanical integration of the transmitter electronics into an AUV payload module.
+
+![3D CAD Concept](docs/images/3d_design.png)
 
 | Component | Dimensions | Description |
 |---|---|---|

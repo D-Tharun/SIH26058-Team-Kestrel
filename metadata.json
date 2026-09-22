@@ -1,6 +1,0 @@
-{
-  "name": "AquaChirp Sonar Transmitter",
-  "description": "Real-time dashboard UI for Software-Defined Sonar Transmitter system with live oscilloscope, FFT spectrum, waterfall spectrogram, and adaptive decision engine.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
