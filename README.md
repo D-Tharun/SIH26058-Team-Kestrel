@@ -23,7 +23,7 @@
 
 | Barker-13 | CW Signal | LFM Chirp |
 | :---: | :---: | :---: |
-| <img width="260" alt="barker 13" src="https://github.com/user-attachments/assets/f8ebcaf2-d14b-4bde-b417-52c8f93ccc08" /> | <img width="260" alt="cw" src="https://github.com/user-attachments/assets/e0507b65-0fdb-4f71-9c58-35297c904baf" /> | <img width="260" alt="lfm chirp" src="https://github.com/user-attachments/assets/793cc427-37d6-4ed2-913a-4ecc7a9709ea" /> |
+| <img width="260" alt="barker 13" src="docs/images/barker-13.jpeg" /> | <img width="260" alt="cw" src="docs/images/cw.jpeg" /> | <img width="260" alt="lfm chirp" src="docs/images/lfm.jpeg" /> |
 
 | Embedded Core | DAC | Physical Validation | Mechanical Integration |
 |---|---|---|---|
@@ -257,10 +257,7 @@ PA6 / D12 (TIM3_CH1 PWM)
 
 ### Oscilloscope Measurements
 
-All waveforms were measured at the FINAL WAVE output node using a Rigol DS1054Z digital storage oscilloscope.
-
-<!-- DSO images will be added here -->
-<!-- CW, LFM Chirp, and Barker-13 waveform captures -->
+All waveforms were measured at the FINAL WAVE output node using a Rigol DS1054Z digital storage oscilloscope. (See the Hardware and Prototype Snapshot section at the top of this document for the waveform captures).
 
 ### Power Measurement
 
