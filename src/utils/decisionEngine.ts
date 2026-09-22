@@ -85,76 +85,80 @@ export function evaluateAdaptiveDecision(
   );
 
   // ==========================================
-  // 3. MODULATION TYPE SELECTION
+  // 3. MODULATION TYPE SELECTION (FIRMWARE SYNCHRONIZED)
   // ==========================================
   let modulation: ModulationType = 'LFM Chirp';
   let pulseDuration = 3.0; // ms (tau <= 5.12 ms for N <= 512 at fs = 100 kS/s)
 
-  if (ambientNoise > 85 || depth > 80) {
-    // High ambient noise & clutter -> Barker-13 phase coding
+  // Reference firmware modulation decision rules:
+  // - If Depth > 80m -> Barker-13 (BPSK phase coded pulse compression)
+  // - If Turbidity < 30 NTU (< 0.3) & Depth < 30m -> CW (Clean shallow Doppler tonal)
+  // - Else if Turbidity > 60 NTU (> 0.6) -> LFM Chirp (Particulate penetration)
+  // - Else if Turbidity 30 to 60 NTU (0.3 to 0.6) -> Geometric Sweep
+  // - Else -> Barker-13
+  if (depth > 80 || ambientNoise > 85) {
     modulation = 'Barker-13';
     pulseDuration = 3.9; // 13 chips * 0.3 ms = 3.9 ms (N = 390 samples at 100 kS/s)
     rules.push({
-      id: 'MOD_BARKER_HIGH_NOISE',
-      condition: `Elevated Ambient Noise (${ambientNoise} dB) OR Depth > 80m`,
+      id: 'MOD_BARKER_DEEP_NOISE',
+      condition: `Deep Water Profile (Depth ${depth.toFixed(1)}m > 80m) OR Noise (${ambientNoise.toFixed(1)} dB > 85 dB)`,
       action: 'Engaged Barker-13 Binary Phase Coding (BPSK)',
       active: true,
       category: 'modulation',
-      impact: 'Provides 11.1 dB pulse compression gain with sharp thumbtack ambiguity for clutter rejection',
+      impact: 'Provides 11.1 dB pulse compression gain with sharp thumbtack ambiguity for deep water clutter rejection',
     });
-    reasoningSteps.push(`Ambient noise or depth threshold exceeded -> Barker-13 BPSK selected for high SNR gain.`);
-  } else if (resPen > 0.7) {
-    // High penetration priority -> Geometric / Logarithmic frequency sweep
-    modulation = 'Geometric Sweep';
-    pulseDuration = 3.84; // 3.84 ms (N = 384 samples at 100 kS/s)
-    rules.push({
-      id: 'MOD_GEOM_SWEEP',
-      condition: `High Penetration Priority (ResPen = ${resPen.toFixed(2)})`,
-      action: 'Engaged Geometric Logarithmic Frequency Sweep',
-      active: true,
-      category: 'modulation',
-      impact: 'Doppler-tolerant wideband energy concentration for deep sediment penetration',
-    });
-    reasoningSteps.push(`High penetration requested -> Geometric Sweep configured with wide fractional bandwidth.`);
-  } else if (turbidity > 35 || resPen > 0.4) {
-    // Standard Pulse Compression need: LFM Chirp
-    modulation = 'LFM Chirp';
-    pulseDuration = 2.56; // 2.56 ms
-    rules.push({
-      id: 'MOD_LFM_CHIRP_HIGH_ATTEN',
-      condition: `Turbidity (${turbidity} NTU) > 35 OR ResPen > 0.40`,
-      action: `Selected LFM Chirp (${bandwidthKhz.toFixed(1)} kHz BW)`,
-      active: true,
-      category: 'modulation',
-      impact: 'Pulse compression allows high transmitted energy without peaking amplifier voltage limit',
-    });
-    reasoningSteps.push(`High Turbidity or moderate penetration -> LFM Chirp selected for pulse compression.`);
-  } else if (depth < 25 && turbidity < 15 && ambientNoise < 60) {
-    // Pristine shallow water -> Continuous Wave (CW) tonal for Doppler measurement
+    reasoningSteps.push(`Deep water (depth > 80m) or high noise -> Barker-13 BPSK selected for high SNR gain.`);
+  } else if (turbidity < 30 && depth < 30) {
+    // Clean shallow water -> Continuous Wave (CW) tonal for Doppler measurement
     modulation = 'CW';
     pulseDuration = 2.56; // 2.56 ms
     rules.push({
       id: 'MOD_CW_SHALLOW',
-      condition: `Clean Shallow Profile (Depth ${depth}m, Turbidity ${turbidity} NTU, Noise ${ambientNoise} dB)`,
+      condition: `Clean Shallow Profile (Turbidity ${turbidity.toFixed(1)} NTU < 30 NTU & Depth ${depth.toFixed(1)}m < 30m)`,
       action: 'Selected Continuous Wave (CW) Tonals',
       active: true,
       category: 'modulation',
-      impact: 'Narrowband velocity Doppler estimation without range dispersion',
+      impact: 'Narrowband velocity Doppler estimation without range dispersion in clean shallow water',
     });
-    reasoningSteps.push(`Low-noise shallow profile -> Continuous Wave (CW) selected for Doppler measurement.`);
-  } else {
-    // Standard ocean survey profile -> Linear Frequency Modulated (LFM) Chirp
+    reasoningSteps.push(`Clean shallow profile (turbidity < 30 NTU, depth < 30m) -> Continuous Wave (CW) selected for Doppler measurement.`);
+  } else if (turbidity > 60) {
+    // High turbidity -> LFM Chirp for pulse compression penetration
     modulation = 'LFM Chirp';
     pulseDuration = 2.56; // 2.56 ms
     rules.push({
-      id: 'MOD_LFM_CHIRP',
-      condition: 'Standard survey acoustic profile',
-      action: `Selected LFM Chirp (${bandwidthKhz.toFixed(1)} kHz BW, ${pulseDuration.toFixed(1)} ms tau)`,
+      id: 'MOD_LFM_CHIRP_HIGH_TURBIDITY',
+      condition: `High Turbidity Profile (Turbidity ${turbidity.toFixed(1)} NTU > 60 NTU)`,
+      action: `Selected LFM Chirp (${bandwidthKhz.toFixed(1)} kHz BW)`,
       active: true,
       category: 'modulation',
-      impact: 'Linear FM pulse compression provides high energy with sub-meter range resolution',
+      impact: 'Pulse compression allows high transmitted energy through suspended particulate scattering without amplifier clipping',
     });
-    reasoningSteps.push(`LFM Chirp configured with ${bandwidthKhz.toFixed(1)} kHz bandwidth across ${fL.toFixed(1)} - ${fH.toFixed(1)} kHz.`);
+    reasoningSteps.push(`High turbidity (> 60 NTU) -> LFM Chirp selected for particulate penetration.`);
+  } else if (turbidity >= 30 && turbidity <= 60) {
+    // Moderate turbidity -> Geometric / Logarithmic frequency sweep
+    modulation = 'Geometric Sweep';
+    pulseDuration = 3.84; // 3.84 ms (N = 384 samples at 100 kS/s)
+    rules.push({
+      id: 'MOD_GEOM_SWEEP',
+      condition: `Moderate Turbidity Profile (Turbidity ${turbidity.toFixed(1)} NTU in [30, 60] NTU)`,
+      action: 'Engaged Geometric Logarithmic Frequency Sweep',
+      active: true,
+      category: 'modulation',
+      impact: 'Doppler-tolerant wideband energy concentration for sediment and suspended particulate penetration',
+    });
+    reasoningSteps.push(`Moderate turbidity (30–60 NTU) -> Geometric Sweep configured with wide fractional bandwidth.`);
+  } else {
+    modulation = 'Barker-13';
+    pulseDuration = 3.9;
+    rules.push({
+      id: 'MOD_BARKER_FALLBACK',
+      condition: 'Reference decision engine default profile',
+      action: 'Selected Barker-13 Binary Phase Coding (BPSK)',
+      active: true,
+      category: 'modulation',
+      impact: 'Standard Barker-13 phase coding for high SNR compression',
+    });
+    reasoningSteps.push(`Reference modulation default -> Barker-13 selected.`);
   }
 
   // Enforce T <= 5.12 ms limit strictly
