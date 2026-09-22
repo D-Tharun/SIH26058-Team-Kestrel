@@ -1,44 +1,4 @@
-/*
- * AquaChirp_FINAL_WINNING_ADAPTIVE_DMA_TELEMETRY.c
- *
- * STM32F103RBT6 / NUCLEO-F103RB
- *
- * Integrated firmware based on the team's previously working reference:
- *   - same physical ADC mapping
- *   - same environmental model
- *   - same AquaChirp dashboard JSON telemetry fields
- *   - same USART2 @ 115200
- *
- * Waveform architecture is kept DMA-first and ISR-safe:
- *   Sensors -> adaptive decision engine -> pending waveform config
- *          -> DMA circular PWM buffer -> CD4053 -> MCP6004 -> WAVE
- *
- * IMPORTANT:
- *   The previous working reference code is used as the source for the
- *   sensor/telemetry behavior. The waveform engine here is intentionally
- *   improved so the DMA callbacks do NOT call sinf/cosf/powf or regenerate
- *   a whole floating-point waveform in the foreground while the DMA is
- *   consuming the buffer.
- *
- * Existing CubeIDE project compatibility:
- *   DMA handle MUST remain:
- *       hdma_tim3_ch1_trig
- *
- * CubeMX-generated stm32f1xx_it.c must call:
- *       HAL_DMA_IRQHandler(&hdma_tim3_ch1_trig);
- *
- * Physical mapping:
- *   PA0/A0 = resolution / penetration potentiometer
- *   PA1/A1 = turbidity (10k/22k divider)
- *   PA4/A2 = temperature potentiometer / sensor
- *   PB0/A3 = depth / water-level
- *   PC0/A5 = salinity / TDS
- *   PA6/D12 = TIM3_CH1 PWM
- *   PC1/A4 = self monitor (optional; telemetry only)
- *   PB5/D4 = CD4053 filter select
- *   PA2/D1 = USART2 TX (ST-LINK VCP)
- *   PA3/D0 = USART2 RX
- */
+
 
 #include "main.h"
 #include <stdio.h>
@@ -49,8 +9,6 @@
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
-
-/* ----------------------------- Constants ----------------------------- */
 
 #define PWM_MAX                 639U
 #define PWM_MID                 320U
@@ -73,18 +31,6 @@
 
 #define PHASE_TWO_PI            4294967296.0
 
-/* Modulation:
- *   0 = CW
- *   1 = LFM
- *   2 = Geometric
- *   3 = Barker-13
- *
- * Window:
- *   0 = Hamming
- *   1 = Hann
- *   2 = Blackman
- */
-
 typedef struct
 {
     uint32_t inc_start;
@@ -95,22 +41,17 @@ typedef struct
     uint8_t window_type;
 } wave_cfg_t;
 
-/* --------------------------- Peripheral handles ---------------------- */
-
 UART_HandleTypeDef huart2;
 ADC_HandleTypeDef hadc1;
 ADC_HandleTypeDef hadc2;
 TIM_HandleTypeDef htim3;
 DMA_HandleTypeDef hdma_tim3_ch1_trig;
 
-/* ----------------------------- Buffers/state ------------------------ */
-
 static volatile uint16_t wave_buf[WAVE_BUF_SIZE];
 
 static int16_t sine_lut[SINE_LUT_SIZE];
 static uint16_t window_lut[3][WINDOW_LUT_SIZE];
 
-/* DMA-owned state: only integer arithmetic in callbacks. */
 static volatile uint32_t phase_acc_q32 = 0U;
 static volatile uint32_t pulse_sample = 0U;
 
@@ -118,7 +59,6 @@ static volatile wave_cfg_t active_cfg;
 static wave_cfg_t pending_cfg;
 static volatile uint8_t config_pending = 0U;
 
-/* Environment state copied from the proven reference architecture. */
 typedef struct
 {
     float depth;
@@ -155,8 +95,6 @@ static uint32_t mon_sum = 0U;
 
 static char uart_buf[4096];
 
-/* ----------------------------- Prototypes ----------------------------- */
-
 void SystemClock_Config(void);
 
 static void MX_GPIO_Init(void);
@@ -187,8 +125,6 @@ static void initialize_wave_buffer(void);
 static void read_self_monitor(void);
 static void send_dashboard(void);
 
-/* ------------------------------ Utilities ---------------------------- */
-
 static float clampf_local(float x, float lo, float hi)
 {
     if (x < lo) return lo;
@@ -210,8 +146,6 @@ static uint32_t hz_to_phase_inc(float hz)
 
     return (uint32_t)(inc + 0.5);
 }
-
-/* ------------------------------ LUTs -------------------------------- */
 
 static void init_luts(void)
 {
@@ -262,8 +196,6 @@ static void init_luts(void)
     }
 }
 
-/* -------------------------- Sensor acquisition ---------------------- */
-
 static uint16_t read_adc_channel(uint32_t channel)
 {
     ADC_ChannelConfTypeDef cfg = {0};
@@ -293,26 +225,25 @@ static uint16_t read_adc_channel(uint32_t channel)
 
 static void read_pots(void)
 {
-    /* Exact physical mapping from the previously working reference. */
+
     pot_adc[0] =
-        read_adc_channel(ADC_CHANNEL_0);   /* PA0 */
+        read_adc_channel(ADC_CHANNEL_0);   
 
     pot_adc[1] =
-        read_adc_channel(ADC_CHANNEL_1);   /* PA1 */
+        read_adc_channel(ADC_CHANNEL_1);   
 
     pot_adc[2] =
-        read_adc_channel(ADC_CHANNEL_4);   /* PA4 */
+        read_adc_channel(ADC_CHANNEL_4);   
 
     pot_adc[3] =
-        read_adc_channel(ADC_CHANNEL_8);   /* PB0 */
+        read_adc_channel(ADC_CHANNEL_8);   
 
     pot_adc[4] =
-        read_adc_channel(ADC_CHANNEL_10);  /* PC0 */
+        read_adc_channel(ADC_CHANNEL_10);  
 
     env.depth =
         ((float)pot_adc[3] / 4095.0f) * 200.0f;
 
-    /* SEN0189 direction is preserved from the working reference. */
     env.turbidity =
         1.0f -
         ((float)pot_adc[1] / 4095.0f);
@@ -327,8 +258,6 @@ static void read_pots(void)
     env.salinity =
         ((float)pot_adc[4] / 4095.0f) * 40.0f;
 }
-
-/* -------------------------- Adaptive decision ------------------------ */
 
 static void compute_environment(void)
 {
@@ -452,11 +381,6 @@ static void compute_environment(void)
     if (env.snr < 0.0f)
         env.snr = 0.0f;
 
-    /*
-     * Preserve the proven reference's physical model,
-     * but constrain bandwidth to what the current 100 kHz
-     * digital/analog chain can demonstrate reliably.
-     */
     const float desired_resolution = 0.5f;
 
     env.bandwidth =
@@ -490,44 +414,36 @@ static void compute_environment(void)
             0.25f,
             0.95f);
 
-    /*
-     * Preserve the reference modulation rules.
-     */
     if (env.turbidity < 0.3f &&
         D < 30.0f) {
 
-        env.mod_type = 0; /* CW */
+        env.mod_type = 0; 
 
     } else if (env.turbidity > 0.6f) {
 
-        env.mod_type = 1; /* LFM */
+        env.mod_type = 1; 
 
     } else if (env.turbidity >= 0.3f &&
                env.turbidity <= 0.6f) {
 
-        env.mod_type = 2; /* Geometric */
+        env.mod_type = 2; 
 
     } else {
 
-        env.mod_type = 3; /* Barker-13 */
+        env.mod_type = 3; 
     }
 
     if (D > 80.0f)
         env.mod_type = 3;
 
-    /*
-     * Reference window decision.
-     * CW gets Hamming here, while chirps/coded signals
-     * use a different window depending on SNR.
-     */
     if (env.mod_type == 0) {
-        env.window_type = 0; /* Hamming */
+        env.window_type = 0; 
     } else if (env.snr > 15.0f) {
         env.window_type = 0;
     } else if (env.snr > 7.0f) {
-        env.window_type = 1; /* Hann */
+        env.window_type = 1; 
     } else {
-        env.window_type = 2; /* Blackman */
+        env.window_type = 2; 
     }
 
     if (env.center_freq < 2000.0f)
@@ -535,10 +451,6 @@ static void compute_environment(void)
     else
         set_mux_filter(0);
 
-    /*
-     * Probing remains disabled in the verified architecture.
-     * Fields are kept so the existing dashboard remains compatible.
-     */
     env.probe_active = 0;
     env.probe_winner = 1;
 
@@ -555,19 +467,12 @@ static void compute_environment(void)
     env.probe_snr[1] = 0.0f;
     env.probe_snr[2] = 0.0f;
 
-    /* Commit a new waveform configuration. */
     commit_wave_config();
 }
 
-/* ----------------------------- Filter MUX ---------------------------- */
-
 static void set_mux_filter(int heavy)
 {
-    /*
-     * Current CD4053 wiring:
-     *   PB5 LOW  -> 100 nF
-     *   PB5 HIGH -> 10 nF
-     */
+
     if (heavy) {
         HAL_GPIO_WritePin(
             GPIOB,
@@ -580,8 +485,6 @@ static void set_mux_filter(int heavy)
             GPIO_PIN_SET);
     }
 }
-
-/* ----------------------- Waveform configuration --------------------- */
 
 static void commit_wave_config(void)
 {
@@ -624,11 +527,6 @@ static void commit_wave_config(void)
         f1 = fc;
     }
 
-    /*
-     * Maximum 20 ms pulse = 2000 samples.
-     * This avoids very long envelope times while keeping
-     * the adaptive pulse visibly demonstrable.
-     */
     uint32_t pulse_samples =
         (uint32_t)lroundf(
             env.duration *
@@ -667,11 +565,6 @@ static void commit_wave_config(void)
     pending_cfg.window_type =
         (uint8_t)env.window_type;
 
-    /*
-     * Main-loop update is protected because callbacks can execute
-     * asynchronously. The active configuration changes only at a
-     * DMA buffer-half boundary.
-     */
     __disable_irq();
     config_pending = 1U;
     __enable_irq();
@@ -691,8 +584,6 @@ static void apply_pending_config_if_ready(void)
     config_pending = 0U;
     __enable_irq();
 }
-
-/* -------------------------- DMA waveform engine --------------------- */
 
 static void generate_wave_half(uint16_t *buf,
                                uint16_t count)
@@ -738,7 +629,7 @@ static void generate_wave_half(uint16_t *buf,
         uint32_t inc =
             inc0;
 
-        if (mode == 1U) { /* LFM */
+        if (mode == 1U) { 
 
             int64_t d =
                 (int64_t)(uint64_t)inc1 -
@@ -750,7 +641,7 @@ static void generate_wave_half(uint16_t *buf,
                     (d * (int64_t)pos) /
                     (int64_t)(total - 1U));
         }
-        else if (mode == 2U) { /* Geometric-like */
+        else if (mode == 2U) { 
 
             uint64_t nn =
                 (uint64_t)pos *
@@ -784,11 +675,6 @@ static void generate_wave_half(uint16_t *buf,
         int32_t sine =
             (int32_t)sine_lut[idx];
 
-        /*
-         * IMPORTANT:
-         * There is NO sinf/cosf/powf in the DMA path.
-         * Window coefficients were precomputed at startup.
-         */
         uint16_t w =
             window_lut[win][n256];
 
@@ -802,7 +688,6 @@ static void generate_wave_half(uint16_t *buf,
              (int32_t)w) >>
             15;
 
-        /* Barker-13 phase code. */
         if (mode == 3U) {
 
             uint32_t seg =
@@ -856,23 +741,14 @@ static void initialize_wave_buffer(void)
         WAVE_HALF);
 }
 
-/* --------------------------- DMA callbacks -------------------------- */
-
 void HAL_TIM_PWM_PulseFinishedHalfCpltCallback(
     TIM_HandleTypeDef *htim)
 {
     if (htim != NULL &&
         htim->Instance == TIM3) {
 
-        /*
-         * Update configuration only at a safe half-buffer boundary.
-         */
         apply_pending_config_if_ready();
 
-        /*
-         * DMA is consuming the second half.
-         * First half is now safe to regenerate.
-         */
         generate_wave_half(
             (uint16_t *)&wave_buf[0],
             WAVE_HALF);
@@ -885,10 +761,6 @@ void HAL_TIM_PWM_PulseFinishedCallback(
     if (htim != NULL &&
         htim->Instance == TIM3) {
 
-        /*
-         * DMA is now back on the first half.
-         * Second half is safe to regenerate.
-         */
         apply_pending_config_if_ready();
 
         generate_wave_half(
@@ -896,8 +768,6 @@ void HAL_TIM_PWM_PulseFinishedCallback(
             WAVE_HALF);
     }
 }
-
-/* --------------------------- Self monitor --------------------------- */
 
 static void read_self_monitor(void)
 {
@@ -912,7 +782,7 @@ static void read_self_monitor(void)
         ADC_ChannelConfTypeDef cfg = {0};
 
         cfg.Channel =
-            ADC_CHANNEL_11; /* PC1/A4 */
+            ADC_CHANNEL_11; 
 
         cfg.Rank = 1;
         cfg.SamplingTime =
@@ -959,18 +829,9 @@ static void read_self_monitor(void)
     }
 }
 
-/* -------------------------- Dashboard JSON -------------------------- */
-
 static void send_dashboard(void)
 {
-    /*
-     * Preserve the field names used by the previously working
-     * AquaChirp dashboard firmware.
-     *
-     * 64 ADC samples are used instead of 256 so the 115200-baud
-     * telemetry channel does not spend hundreds of milliseconds
-     * blocked transmitting one frame.
-     */
+
     int len =
         snprintf(
             uart_buf,
@@ -1087,18 +948,12 @@ static void send_dashboard(void)
     if (total >= sizeof(uart_buf))
         return;
 
-    /*
-     * Keep UART telemetry in the main loop.
-     * DMA waveform generation is independent.
-     */
     HAL_UART_Transmit(
         &huart2,
         (uint8_t *)uart_buf,
         (uint16_t)total,
         250U);
 }
-
-/* -------------------------- GPIO/ADC/DMA/TIM ------------------------- */
 
 static void MX_GPIO_Init(void)
 {
@@ -1109,7 +964,6 @@ static void MX_GPIO_Init(void)
     __HAL_RCC_GPIOC_CLK_ENABLE();
     __HAL_RCC_GPIOD_CLK_ENABLE();
 
-    /* PC13 LED. */
     HAL_GPIO_WritePin(
         GPIOC,
         GPIO_PIN_13,
@@ -1124,7 +978,6 @@ static void MX_GPIO_Init(void)
         GPIOC,
         &gpio);
 
-    /* PB5 = CD4053 control. */
     HAL_GPIO_WritePin(
         GPIOB,
         GPIO_PIN_5,
@@ -1136,7 +989,6 @@ static void MX_GPIO_Init(void)
         GPIOB,
         &gpio);
 
-    /* Analog sensor inputs. */
     gpio.Pin =
         GPIO_PIN_0 |
         GPIO_PIN_1 |
@@ -1362,10 +1214,6 @@ static void MX_TIM3_Init(void)
         GPIOA,
         &gpio);
 
-    /*
-     * TIM3 update event drives ADC2 conversion.
-     * PWM DMA itself is attached to TIM3 CH1 CC1.
-     */
     master.MasterOutputTrigger =
         TIM_TRGO_UPDATE;
 
@@ -1379,8 +1227,6 @@ static void MX_TIM3_Init(void)
         Error_Handler();
     }
 }
-
-/* ------------------------------ Clock ------------------------------- */
 
 void SystemClock_Config(void)
 {
@@ -1434,8 +1280,6 @@ void SystemClock_Config(void)
     }
 }
 
-/* -------------------------------- Main ------------------------------- */
-
 int main(void)
 {
     HAL_Init();
@@ -1462,15 +1306,9 @@ int main(void)
 
     init_luts();
 
-    /*
-     * First sensor state -> first adaptive waveform.
-     */
     read_pots();
     compute_environment();
 
-    /*
-     * Apply the first configuration immediately before DMA start.
-     */
     active_cfg =
         pending_cfg;
 
@@ -1501,10 +1339,6 @@ int main(void)
         uint32_t now =
             HAL_GetTick();
 
-        /*
-         * Sensor/adaptation path.
-         * DMA waveform continues independently in the callbacks.
-         */
         if ((uint32_t)(
                 now -
                 last_sensor_tick) >=
@@ -1517,11 +1351,6 @@ int main(void)
             compute_environment();
         }
 
-        /*
-         * Telemetry path.
-         * A4 loopback is optional; if it is not wired yet,
-         * this simply reports zero-ish ADC information.
-         */
         if ((uint32_t)(
                 now -
                 last_telemetry_tick) >=
@@ -1548,13 +1377,6 @@ int main(void)
         }
     }
 }
-
-/*
- * Keep the CubeMX-generated DMA1_Channel6_IRQHandler() in
- * stm32f1xx_it.c. It must call:
- *
- *     HAL_DMA_IRQHandler(&hdma_tim3_ch1_trig);
- */
 
 void Error_Handler(void)
 {
