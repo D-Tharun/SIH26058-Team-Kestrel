@@ -1,494 +1,328 @@
-# TEAM KESTREL — SIH26058
-# WIRING GUIDE
+## SIH 26058 — Adaptive Software-Defined Sonar Transmitter Payload
 
-## Project
+This guide documents the **5-pot prototype input configuration** used for environmental-input emulation.
 
-**Team:** Kestrel  
-**SIH Problem Statement:** 26058  
-**System:** Adaptive Software-Defined Sonar Transmitter Payload for AUVs
+The five 10 kΩ potentiometers represent:
 
-This document is the hardware wiring reference for the SIH26058 prototype.
+1. Resolution / Penetration preference
+2. Turbidity
+3. Temperature
+4. Depth
+5. Salinity
 
-> **Important:** Use the verified project wiring and component datasheets as the electrical source of truth. Do not add or infer connections that are not documented.
-
----
-
-# 1. STM32 POWER RAILS
-
-| STM32 connection | Connect to |
-|---|---|
-| 3V3 | 3.3 V rail |
-| GND | GND rail |
-
-Keep the 3.3 V and GND rails clearly identified.
+All five potentiometers are wired as voltage dividers between **3.3 V and GND**. The **wiper** of each potentiometer goes to one STM32 ADC input.
 
 ---
 
-# 2. MCP6004
+## 1. Five-Pot Wiring Summary
 
-## Power
+| Potentiometer | Parameter | Value | One outer pin | Wiper | Other outer pin |
+|---|---|---:|---|---|---|
+| POT1 | RES-PEN | 10 kΩ | 3.3 V | PA0 / A0 | GND |
+| POT2 | TURBIDITY | 10 kΩ | 3.3 V | PA1 / A1 | GND |
+| POT3 | TEMP | 10 kΩ | 3.3 V | PA4 / A2 | GND |
+| POT4 | DEPTH | 10 kΩ | 3.3 V | PB0 / A3 | GND |
+| POT5 | SALINITY | 10 kΩ | 3.3 V | PC0 / A5 | GND |
 
-```text
-MCP6004 Pin 4  → 3.3 V
-MCP6004 Pin 11 → GND
-```
-
-Place a **100 nF decoupling capacitor** directly between the supply rails:
-
-```text
-Pin 4 / 3.3 V
-      │
-    100 nF
-      │
-Pin 11 / GND
-```
-
-## Channel A — Buffer 1
-
-```text
-FILT1 → Pin 3 (+)
-
-Pin 1 (OUT) ───── Pin 2 (−)
-```
-
-Therefore:
-
-```text
-FILT1
-  │
-  ▼
-Pin 3 (+)
-Pin 1 (OUT)
-  │
-  └──────── Pin 2 (−)
-```
-
-The output of Channel A is the **BUFFER1** node.
-
-## Channel B — Buffer 2
-
-```text
-FILT2 → Pin 5 (+)
-
-Pin 7 (OUT) ───── Pin 6 (−)
-```
-
-The output of Channel B is:
-
-```text
-FINAL WAVE = MCP6004 Pin 7
-```
-
-## Unused Channel C
-
-```text
-Pin 10 (+) → GND
-Pin 8 (OUT) ───── Pin 9 (−)
-```
-
-## Unused Channel D
-
-```text
-Pin 12 (+) → GND
-Pin 14 (OUT) ───── Pin 13 (−)
-```
+> **Important:** The two outer terminals of every potentiometer form the 3.3 V–GND voltage divider. The center terminal is the ADC wiper.
 
 ---
 
-# 3. CD4053B
+## 2. Standard Potentiometer Connection
 
-## Power
-
-```text
-Pin 16 (VDD) → 3.3 V
-Pin 8  (VSS) → GND
-Pin 7  (VEE) → GND
-Pin 6  (INH) → GND
-```
-
-Place a **100 nF decoupling capacitor** between:
+Each 10 kΩ potentiometer is wired in the same basic way:
 
 ```text
-Pin 16 / 3.3 V
-      │
-    100 nF
-      │
-Pin 8 / GND
+                 3.3 V
+                   |
+             +-----+-----+
+             |   10 kΩ  |
+             |    POT   |
+             +-----+-----+
+                   |
+                  GND
+
+                 WIPER
+                   |
+                   +-------- STM32 ADC INPUT
 ```
 
-## Analog channel A
-
-```text
-Pin 14 (COM) ← FILT1
-```
-
-Filter paths:
-
-```text
-Pin 12 (AX) ── 100 nF ── GND
-
-Pin 13 (AY) ── 10 nF ─── GND
-```
-
-## Filter selection
-
-```text
-Pin 11 (A) ← STM32 PB5 / D4
-```
-
-The firmware controls the selected filter path through PB5.
+The wiper voltage varies approximately from **0 V to 3.3 V** as the knob is rotated.
 
 ---
 
-# 4. FIRST FILTER STAGE
+## 3. POT1 — Resolution / Penetration
 
-The current prototype signal enters from the STM32 waveform output:
-
-```text
-STM32 PA6 / D12
-       │
-      1 kΩ
-       │
-     FILT1
-```
-
-The **FILT1** node connects to:
+**Purpose:** Emulates the resolution-versus-penetration preference.
 
 ```text
-FILT1
-  ├────────→ CD4053B Pin 14 (COM)
-  │
-  └────────→ MCP6004 Pin 3 (+)
+POT1 — 10 kΩ
+
+Outer pin 1  -> 3.3 V
+Wiper        -> PA0 / A0
+Outer pin 2  -> GND
 ```
+
+**Label:** `RES-PEN`
 
 ---
 
-# 5. SECOND FILTER STAGE
+## 4. POT2 — Turbidity
 
-The first MCP6004 buffer output feeds the second RC stage:
-
-```text
-MCP6004 Pin 1
-     │
-    1 kΩ
-     │
-   FILT2
-     │
-    10 nF
-     │
-    GND
-```
-
-The FILT2 node also connects to:
+**Purpose:** Emulates the water turbidity/environmental condition.
 
 ```text
-FILT2 → MCP6004 Pin 5 (+)
+POT2 — 10 kΩ
+
+Outer pin 1  -> 3.3 V
+Wiper        -> PA1 / A1
+Outer pin 2  -> GND
 ```
 
-MCP6004 Channel B is configured as a voltage follower:
-
-```text
-Pin 7 (OUT) ───── Pin 6 (−)
-```
-
-Therefore:
-
-```text
-MCP6004 Pin 7 = FINAL WAVE
-```
+**Label:** `TURBIDITY`
 
 ---
 
-# 6. FINAL WAVE SELF-MONITOR
+## 5. POT3 — Temperature
 
-The final waveform is monitored by the STM32:
+**Purpose:** Emulates the temperature input during 5-pot prototype mode.
 
 ```text
-MCP6004 Pin 7
-     │
-    10 kΩ
-     │
- WAVE_MON
-     │
-     ├────────→ STM32 PC1 / A4
-     │
-    1 nF
-     │
-    GND
+POT3 — 10 kΩ
+
+Outer pin 1  -> 3.3 V
+Wiper        -> PA4 / A2
+Outer pin 2  -> GND
 ```
 
-The 10 kΩ resistor and 1 nF capacitor form the self-monitor interface.
+**Label:** `TEMP`
 
 ---
 
-# 7. COMPLETE CURRENT SIGNAL PATH
+## 6. POT4 — Depth
+
+**Purpose:** Emulates operating depth.
 
 ```text
-STM32 PA6 / D12
-       │
-      1 kΩ
-       │
-     FILT1
-       │
-       ├──────────────→ CD4053B Pin 14
-       │                     │
-       │              ┌──────┴──────┐
-       │              │             │
-       │            100 nF        10 nF
-       │              │             │
-       │             GND           GND
-       │
-       ▼
-MCP6004 Channel A
-Pin 3 (+)
-Pin 1 ↔ Pin 2
-       │
-       ▼
-      1 kΩ
-       │
-     FILT2
-       │
-      10 nF
-       │
-      GND
-       │
-       ▼
-MCP6004 Channel B
-Pin 5 (+)
-Pin 7 ↔ Pin 6
-       │
-       ▼
-  FINAL WAVE
-       │
-       ├────────→ DSO
-       │
-       │
-      10 kΩ
-       │
-    WAVE_MON
-       │
-       ├────────→ PC1 / A4
-       │
-      1 nF
-       │
-      GND
+POT4 — 10 kΩ
+
+Outer pin 1  -> 3.3 V
+Wiper        -> PB0 / A3
+Outer pin 2  -> GND
 ```
+
+**Label:** `DEPTH`
 
 ---
 
-# 8. SENSOR INTERFACE CONNECTORS
+## 7. POT5 — Salinity
 
-The field-sensor architecture uses removable **3-pin connectors** so external sensors can be plugged into the prototype.
-
-Use the following connector convention:
+**Purpose:** Emulates salinity/TDS during prototype mode.
 
 ```text
-Pin 1 → VCC
-Pin 2 → GND
-Pin 3 → SIGNAL
+POT5 — 10 kΩ
+
+Outer pin 1  -> 3.3 V
+Wiper        -> PC0 / A5
+Outer pin 2  -> GND
 ```
 
-## J1 — Temperature
-
-```text
-J1
-Pin 1 → sensor supply
-Pin 2 → GND
-Pin 3 → temperature signal/data
-```
-
-Sensor:
-
-**DS18B20**
-
-The exact DS18B20 pull-up and signal wiring must follow the verified sensor-interface design and datasheet.
+**Label:** `SALINITY`
 
 ---
 
-## J2 — Turbidity
+## 8. Complete Five-Pot Wiring
 
 ```text
-J2
-Pin 1 → sensor supply
-Pin 2 → GND
-Pin 3 → analog signal
+                         STM32 NUCLEO
+                    +------------------+
+                    |                  |
+3.3 V --------------+------------------+-------------------+
+                    |                  |                   |
+GND ----------------+------------------+---------------+   |
+                    |                  |               |   |
+PA0 / A0 -----------+------------------+-----------+   |   |
+PA1 / A1 -----------+------------------+---------+ |   |   |
+PA4 / A2 -----------+------------------+-------+ | |   |   |
+PB0 / A3 -----------+------------------+-----+ | | |   |   |
+PC0 / A5 -----------+------------------+---+ | | | |   |   |
+                    +------------------+   | | | | |   |   |
+                                           | | | | |   |   |
+             POT1 RES-PEN                  | | | | |   |   |
+        3.3 V ----+                        | | | | |   |   |
+                  | 10 kΩ                   | | | | |   |   |
+                  +--- WIPER --------------+ | | | |   |   |
+                  |      -> PA0 / A0         | | | |   |   |
+        GND ------+                          | | | |   |   |
+                                             | | | |   |   |
+             POT2 TURBIDITY                  | | | |   |   |
+        3.3 V ----+                          | | | |   |   |
+                  | 10 kΩ                    | | | |   |   |
+                  +--- WIPER ----------------+ | | |   |   |
+                  |      -> PA1 / A1          | | |   |   |
+        GND ------+                            | | |   |   |
+                                               | | |   |   |
+             POT3 TEMP                         | | |   |   |
+        3.3 V ----+                            | | |   |   |
+                  | 10 kΩ                      | | |   |   |
+                  +--- WIPER ------------------+ | |   |   |
+                  |      -> PA4 / A2            | | |   |   |
+        GND ------+                              | |   |   |
+                                                 | |   |   |
+             POT4 DEPTH                          | |   |   |
+        3.3 V ----+                              | |   |   |
+                  | 10 kΩ                        | |   |   |
+                  +--- WIPER --------------------+ |   |   |
+                  |      -> PB0 / A3              | |   |   |
+        GND ------+                                |   |   |
+                                                   |   |   |
+             POT5 SALINITY                         |   |   |
+        3.3 V ----+                                |   |   |
+                  | 10 kΩ                          |   |   |
+                  +--- WIPER ----------------------+   |   |
+                  |      -> PC0 / A5                   |   |
+        GND ------+                                    |
 ```
 
-Sensor:
-
-**SEN0189 Turbidity Sensor**
-
-If the sensor output is above the STM32 ADC range, use the verified resistor-divider interface before the ADC input.
+For the physical prototype, use common **3.3 V** and **GND** rails and route each wiper separately to its assigned ADC pin.
 
 ---
 
-## J3 — TDS / Salinity
+## 9. STM32 ADC Mapping
 
-```text
-J3
-Pin 1 → sensor supply
-Pin 2 → GND
-Pin 3 → analog signal
-```
+| Parameter | STM32 Pin | Prototype Input |
+|---|---|---|
+| Resolution / Penetration | PA0 / A0 | POT1 |
+| Turbidity | PA1 / A1 | POT2 |
+| Temperature | PA4 / A2 | POT3 |
+| Depth | PB0 / A3 | POT4 |
+| Salinity | PC0 / A5 | POT5 |
 
-Sensor:
-
-**TDS / Salinity sensor**
-
-Use the verified sensor-module supply and signal requirements from the corresponding datasheet.
-
----
-
-# 9. SENSOR CONNECTOR CONCEPT
-
-The physical architecture is:
-
-```text
-                 TEAM KESTREL
-                 SIH26058
-                     │
-        ┌────────────┼────────────┐
-        │            │            │
-       J1           J2           J3
-       │            │            │
-     TEMP        TURBIDITY       TDS
-       │            │            │
-   DS18B20       SEN0189      TDS SENSOR
-```
-
-The connectors are intended to make the sensor interfaces removable and replaceable during prototype testing.
-
----
-
-# 10. STM32 INTERFACE MAP
+Other relevant STM32 connections:
 
 | STM32 pin | Function |
 |---|---|
-| PA6 / D12 | Current prototype waveform output |
-| PB5 / D4 | CD4053 filter-select control |
-| PC1 / A4 | FINAL WAVE self-monitor |
-| 3V3 | Logic/sensor supply where applicable |
+| PA6 | Current prototype waveform input / PWM path |
+| PB5 | CD4053 A control |
+| PC1 | FINAL WAVE self-monitor |
+| 3V3 | Potentiometer supply |
 | GND | Common ground |
 
-Sensor ADC assignments must follow the currently verified firmware and wiring documentation.
+**No 5 V rail is used for the five-pot prototype inputs.**
 
 ---
 
-# 11. MCP4921 — ROADMAP / SEPARATE DAC ARCHITECTURE
+## 10. Electrical Principle
 
-The MCP4921 belongs to the **separate DAC-based architecture** and must not be confused with the current PA6/PWM prototype path unless that hardware and firmware are actually implemented.
+```text
+POT POSITION
+     |
+     v
+ANALOG VOLTAGE (0–3.3 V)
+     |
+     v
+STM32 ADC
+     |
+     v
+DIGITAL VALUE
+     |
+     v
+ENVIRONMENTAL PARAMETER
+     |
+     v
+ADAPTIVE TRANSMITTER DECISION
+```
 
-When the MCP4921 architecture is used, the intended signal concept is:
+Each potentiometer acts as a variable voltage divider:
+
+```text
+3.3 V
+  |
+ 10 kΩ POT
+  |
+ WIPER ---------> STM32 ADC
+  |
+ GND
+```
+
+---
+
+## 11. MCP4921 DAC Wiring
+
+The MCP4921 is the external 12-bit DAC used in the DAC-based waveform-generation path.
+
+```text
+STM32 NUCLEO              MCP4921 DAC
++-----------+             +-----------+
+| PA5       | ----------> | SCK       |
+| PA7       | ----------> | SDI/MOSI  |
+| PB6       | ----------> | CS        |
+| 3.3 V     | ----------> | VDD       |
+| GND       | ----------> | VSS       |
++-----------+             |           |
+                          | VOUT -----> R1 (1 kΩ)
+                          +-----------+
+                                      |
+                                      v
+                                    FILT1
+                                      |
+                                      v
+                                    CD4053B
+```
+
+### MCP4921 Pin Connections
+
+| MCP4921 pin/function | Connection |
+|---|---|
+| VDD | 3.3 V |
+| VSS | GND |
+| SCK | STM32 PA5 / SPI clock |
+| SDI | STM32 PA7 / SPI MOSI |
+| CS | STM32 PB6 / chip select |
+| VOUT | R1 (1 kΩ) → FILT1 → CD4053B signal path |
+
+Use a common ground between the STM32 and MCP4921.
+
+The DAC signal path is:
 
 ```text
 STM32 SPI
-   │
-   ▼
-MCP4921
-   │
-  VOUT
-   │
-   ▼
-R1 / Filter Input
-   │
-   ▼
+   |
+   v
+MCP4921 (12-bit DAC)
+   |
+   v
+VOUT
+   |
+   v
+R1 = 1 kΩ
+   |
+   v
 FILT1
-   │
-   ▼
+   |
+   v
 CD4053B
-   │
-   ▼
-MCP6004
-   │
-   ▼
+   |
+   v
+MCP6004 buffer
+   |
+   v
 FINAL WAVE
 ```
 
-MCP4921 SPI connections must be taken from the verified schematic/firmware for the specific hardware revision.
+This is the external-DAC waveform-generation configuration and is separate from the five-pot environmental-input wiring.
 
 ---
+---
 
-# 12. IMPORTANT HARDWARE EXCLUSIONS
-
-The current wiring guide does **not** include:
+## 12. Final Five-Pot Pin Map
 
 ```text
-❌ Speaker
-❌ BC547 speaker driver
-❌ Unverified external circuitry
-❌ Unverified power rails
+POT1 RES-PEN    : 3.3 V -> 10 kΩ POT -> WIPER -> PA0/A0 -> GND
+POT2 TURBIDITY  : 3.3 V -> 10 kΩ POT -> WIPER -> PA1/A1 -> GND
+POT3 TEMP       : 3.3 V -> 10 kΩ POT -> WIPER -> PA4/A2 -> GND
+POT4 DEPTH      : 3.3 V -> 10 kΩ POT -> WIPER -> PB0/A3 -> GND
+POT5 SALINITY   : 3.3 V -> 10 kΩ POT -> WIPER -> PC0/A5 -> GND
 ```
 
-Do not add these components to the prototype layout unless they are explicitly included in a later verified hardware revision.
-
----
-
-# 13. WIRING VERIFICATION CHECKLIST
-
-Before using the layout in a presentation or physical build, verify:
-
-- [ ] STM32 3.3 V rail is connected
-- [ ] Common GND is connected
-- [ ] MCP6004 Pin 4 → 3.3 V
-- [ ] MCP6004 Pin 11 → GND
-- [ ] MCP6004 100 nF decoupling is actually connected
-- [ ] MCP6004 Channel A is a follower
-- [ ] MCP6004 Channel B is a follower
-- [ ] Unused MCP6004 channels are terminated
-- [ ] CD4053 Pin 16 → 3.3 V
-- [ ] CD4053 Pin 8 → GND
-- [ ] CD4053 Pin 7 → GND
-- [ ] CD4053 Pin 6 → GND
-- [ ] CD4053 100 nF decoupling is actually connected
-- [ ] CD4053 Pin 14 → FILT1
-- [ ] CD4053 Pin 12 → 100 nF → GND
-- [ ] CD4053 Pin 13 → 10 nF → GND
-- [ ] CD4053 Pin 11 → PB5 / D4
-- [ ] PA6 → 1 kΩ → FILT1
-- [ ] FILT1 → MCP6004 Pin 3
-- [ ] MCP6004 Pin 1 → 1 kΩ → FILT2
-- [ ] FILT2 → 10 nF → GND
-- [ ] FILT2 → MCP6004 Pin 5
-- [ ] MCP6004 Pin 7 → FINAL WAVE
-- [ ] FINAL WAVE → 10 kΩ → WAVE_MON
-- [ ] WAVE_MON → PC1 / A4
-- [ ] WAVE_MON → 1 nF → GND
-- [ ] Sensor connector pin assignments match the actual sensor datasheets
-- [ ] No unverified component has been added
-
----
-
-# 14. Reference Signal-Chain Summary
-
-```text
-PA6 / D12
-   │
-  1 kΩ
-   │
- FILT1
-   │
-   ├── CD4053B
-   │
-   └── MCP6004 A
-          │
-         1 kΩ
-          │
-        FILT2
-          │
-        MCP6004 B
-          │
-          ▼
-      FINAL WAVE
-          │
-          ├── DSO
-          │
-          └── PC1 self-monitor
-```
-
----
-
-## Team Kestrel — SIH26058
-
-**Hardware Wiring Guide**
-
-This document is intended to accompany the verified hardware layout, firmware pin map, component datasheets, and prototype documentation.
+**This is the complete 5-pot environmental-emulation wiring configuration for the AquaChirp prototype.**
