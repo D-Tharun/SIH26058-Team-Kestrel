@@ -95,78 +95,50 @@ SIH26058-Team-Kestrel/
 
 ## System Architecture
 
-```text
-             ENVIRONMENTAL INPUTS
-    +-------------------------------------+
-    | Depth | Temperature | Turbidity     |
-    | Salinity | Resolution-Penetration   |
-    +------------------+------------------+
-                       |
-                       v
-    +------------------+------------------+
-    |          STM32F103RBT6              |
-    |                                     |
-    |  Sensor Acquisition (ADC1/ADC2)     |
-    |  Adaptive Decision Engine           |
-    |  DDS Waveform Synthesis (LUT)       |
-    |  DMA Circular Buffer Streaming      |
-    +------------------+------------------+
-                       |
-                Timer + DMA
-                       |
-              +--------+--------+
-              |                 |
-              v                 v
-    +---------+-------+  +------+----------+
-    | MCP4921 DAC     |  | USART2 TX       |
-    | 12-bit SPI      |  | 115200 baud     |
-    +--------+--------+  | JSON Telemetry  |
-             |            +------+----------+
-             v                   |
-    +--------+--------+         v
-    | Analog Signal   |  +------+----------+
-    | Chain            |  | Web Dashboard   |
-    |                 |  | WebSerial API   |
-    | RC Filter       |  | React + Vite    |
-    | CD4053B MUX     |  +-----------------+
-    | MCP6004 Buffer  |
-    +--------+--------+
-             |
-             v
-      ANALOG OUTPUT
-             |
-    +--------+--------+
-    | Rigol DS1054Z   |
-    | Time + FFT      |
-    +-----------------+
+```mermaid
+graph TD
+    subgraph Env["Environmental Inputs"]
+        E1["Depth"]
+        E2["Temperature"]
+        E3["Turbidity"]
+        E4["Salinity"]
+        E5["Resolution / Penetration"]
+    end
+    
+    subgraph MCU["STM32F103RBT6"]
+        M1["Sensor Acquisition (ADC1/ADC2)"]
+        M2["Adaptive Decision Engine"]
+        M3["DDS Waveform Synthesis (LUT)"]
+        M4["DMA Circular Buffer Streaming"]
+    end
+
+    Env --> MCU
+    MCU -- "Timer + DMA" --> DAC["MCP4921 DAC<br>12-bit SPI"]
+    MCU -- "Timer + DMA" --> TX["USART2 TX<br>115200 baud<br>JSON Telemetry"]
+    
+    DAC --> Analog["Analog Signal Chain<br>RC Filter<br>CD4053B MUX<br>MCP6004 Buffer"]
+    TX --> Web["Web Dashboard<br>WebSerial API<br>React + Vite"]
+    
+    Analog --> Output["Analog Output"]
+    Output --> DSO["Rigol DS1054Z<br>Time + FFT"]
 ```
 
 ---
 
 ## Signal Flow
 
-```text
-Environmental Inputs
-        |
-STM32 ADC Data Acquisition
-        |
-Adaptive Transmission Logic
-        |
-Waveform Synthesis (Phase Accumulator + LUT)
-        |
-Timer + DMA Sample Streaming
-        |
-MCP4921 12-bit DAC
-        |
-Analog Reconstruction Filter
-        |
-CD4053B Filter Selection (PB5 controlled)
-        |
-MCP6004 Buffer / Conditioning
-        |
-Analog Output
-        |
-Oscilloscope Validation (Time Domain + FFT)
+```mermaid
+flowchart TD
+    A["Environmental Inputs"] --> B["STM32 ADC Data Acquisition"]
+    B --> C["Adaptive Transmission Logic"]
+    C --> D["Waveform Synthesis (Phase Accumulator + LUT)"]
+    D --> E["Timer + DMA Sample Streaming"]
+    E --> F["MCP4921 12-bit DAC"]
+    F --> G["Analog Reconstruction Filter"]
+    G --> H["CD4053B Filter Selection (PB5 controlled)"]
+    H --> I["MCP6004 Buffer / Conditioning"]
+    I --> J["Analog Output"]
+    J --> K["Oscilloscope Validation (Time Domain + FFT)"]
 ```
 
 ---
@@ -213,42 +185,29 @@ Window function selection follows SNR estimation:
 
 ## Analog Signal Chain
 
-```text
-PA6 / D12 (TIM3_CH1 PWM)
-       |
-      1k ohm
-       |
-     FILT1 --------+---------- CD4053B Pin 14 (COM)
-       |            |                  |
-       |            |          +-------+-------+
-       |            |        PB5=0           PB5=1
-       |            |       100 nF           10 nF
-       |            |         |                |
-       |            |        GND              GND
-       v            |
-  MCP6004 Ch.A      |
-  (Voltage Follower) |
-       |            |
-      1k ohm        |
-       |            |
-     FILT2 -------- 10 nF --- GND
-       |
-       v
-  MCP6004 Ch.B
-  (Voltage Follower)
-       |
-       v
-  FINAL WAVE ------+---------- DSO / Transducer
-                    |
-                  10k ohm
-                    |
-                WAVE_MON
-                    |
-              +-----+-----+
-              |            |
-         PC1 / A4       1 nF
-        (ADC2 Loopback)    |
-                          GND
+```mermaid
+flowchart TD
+    PWM["PA6 / D12 (TIM3_CH1 PWM)"] --> R1["1kΩ Resistor"]
+    R1 --> FILT1{"FILT1 Node"}
+    
+    FILT1 --> MUX["CD4053B MUX (Pin 14)"]
+    MUX -- "PB5=0" --> C1["100 nF Capacitor to GND"]
+    MUX -- "PB5=1" --> C2["10 nF Capacitor to GND"]
+    
+    FILT1 --> BUFA["MCP6004 Ch.A (Voltage Follower)"]
+    BUFA --> R2["1kΩ Resistor"]
+    R2 --> FILT2{"FILT2 Node"}
+    
+    FILT2 --> C3["10 nF Capacitor to GND"]
+    FILT2 --> BUFB["MCP6004 Ch.B (Voltage Follower)"]
+    
+    BUFB --> WAVE{"FINAL WAVE Node"}
+    WAVE --> DSO["DSO / Transducer"]
+    WAVE --> R3["10kΩ Resistor"]
+    
+    R3 --> WAVEMON{"WAVE_MON Node"}
+    WAVEMON --> ADC["PC1 / A4 (ADC2 Loopback)"]
+    WAVEMON --> C4["1 nF Capacitor to GND"]
 ```
 
 ---
