@@ -67,7 +67,7 @@ KESTREL is a software-defined sonar transmitter payload built around an STM32 mi
 SIH26058-Team-Kestrel/
 |
 |-- firmware/                          STM32 Edge Firmware
-|   +-- AquaChirp_...TELEMETRY.c       Adaptive DMA waveform engine (1556 lines)
+|   +-- kestrel_waveform_engine.c      Adaptive DMA waveform engine (1556 lines)
 |
 |-- hardware/                          Physical Circuits and Interfaces
 |   +-- Wiring Guide.md                Master pin-to-pin wiring reference
