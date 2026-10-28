@@ -400,5 +400,4 @@ This repository is configured for zero-configuration deployment on Vercel:
 This project is open-source and available under the [MIT License](LICENSE).
 
 ---
-
-**Team KESTREL | SIH26058 | SRM Institute of Science and Technology, Ramapuram**
+Team KESTREL | SIH26058 
