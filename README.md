@@ -9,9 +9,9 @@
 [![WebSerial](https://img.shields.io/badge/Protocol-WebSerial_API-0284C7?logo=googlechrome&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API)
 [![License: MIT](https://img.shields.io/badge/License-MIT-22c55e.svg)](LICENSE)
 
-| Team | Team ID | Institution |
+| Team | Team ID |
 |---|---|---|
-| **KESTREL** | **127602** | SRM Institute of Science and Technology, Ramapuram |
+| **KESTREL** | **127602** | 
 
 > **Live Dashboard:** [aquachirp-sonar-transmitter.vercel.app](https://aquachirp-sonar-transmitter.vercel.app/)
 
